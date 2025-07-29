@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Download, Share2 } from 'lucide-react';
+import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Share2 } from 'lucide-react';
 
 const PaymentSuccessPage = () => {
   const { state } = useLocation();
@@ -49,12 +49,6 @@ const PaymentSuccessPage = () => {
     paymentIntent,
     transactionId
   } = orderData;
-
-  const handleDownloadReceipt = () => {
-    // Placeholder for receipt download functionality
-    console.log('Downloading receipt for order:', orderId);
-    // In a real app, this would generate and download a PDF receipt
-  };
 
   const handleShareOrder = () => {
     // Placeholder for sharing functionality
@@ -149,17 +143,10 @@ const PaymentSuccessPage = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <button
-              onClick={handleDownloadReceipt}
-              className="bg-[#FF9B57] text-white px-6 py-3 rounded-2xl font-medium hover:bg-[#FF8A42] transition-colors flex items-center justify-center"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Download Receipt
-            </button>
+          <div className="flex justify-center mb-8">
             <button
               onClick={handleShareOrder}
-              className="bg-white border-2 border-[#FF9B57] text-[#FF9B57] px-6 py-3 rounded-2xl font-medium hover:bg-[#FF9B57] hover:text-white transition-colors flex items-center justify-center"
+              className="bg-[#FF9B57] text-white px-6 py-3 rounded-2xl font-medium hover:bg-[#FF8A42] transition-colors flex items-center justify-center"
             >
               <Share2 className="w-5 h-5 mr-2" />
               Share Order
