@@ -4,6 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 
 const ProductCard = ({ product, onClick }) => {
+
+   // Calculate discount percentage
+   const calculateDiscountPercentage = () => {
+    if (product.offer_price && product.price && product.offer_price < product.price) {
+      const discount = ((product.price - product.offer_price) / product.price) * 100;
+      return Math.round(discount);
+    }
+    return 0;
+  };
+
+  const discountPercentage = calculateDiscountPercentage();
   return (
     <div
       className="bg-white w-[262px] h-[460px] rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex-shrink-0"
@@ -13,9 +24,11 @@ const ProductCard = ({ product, onClick }) => {
         <button className="absolute right-0 top-0 z-10">
           <Heart className="w-6 h-6 text-gray-400" />
         </button>
-        <span className="absolute left-0 top-0 bg-orange-500 text-white text-sm px-3 py-1 rounded-full">
-          {product.discount || "30%"}
-        </span>
+        {discountPercentage > 0 && (
+          <span className="absolute left-0 top-0 bg-orange-500 text-white text-sm px-3 py-1 rounded-full">
+            {discountPercentage}% OFF
+            </span>
+        )}
         <img
           src={product.images?.[0]?.image_url || product.image_url || "/images/placeholder.png"}
           alt={product.name}
@@ -35,8 +48,14 @@ const ProductCard = ({ product, onClick }) => {
       <p className="text-gray-700 text-md mb-2 min-h-[40px] line-clamp-2">
         {product.name || "No description"}
       </p>
-      <p className="text-xl font-bold mb-4">{product.price} AED</p>
-
+ {product.offer_price && product.offer_price < product.price ? (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-red-500 font-bold text-lg">{product.offer_price} AED</span>
+            <span className="text-gray-500 line-through text-xl font-bold mb-4">{product.price} AED</span>
+          </div>
+        ) : (
+          <span className="text-gray-800 font-bold text-xl mb-4">{product.price} AED</span>
+        )}
       <button className="w-full bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-full text-sm font-medium transition-colors">
         Add To Cart
       </button>
