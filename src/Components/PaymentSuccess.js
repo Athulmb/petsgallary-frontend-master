@@ -10,13 +10,15 @@ const PaymentSuccessPage = () => {
   const [orderData, setOrderData] = useState(null);
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
 
-  // Mock data for testing
+  // Mock data for testing - Updated with proper image handling
   const mockOrderData = {
     cartItems: [
       {
         cart_item_id: 1,
         name: "Premium Dog Food - Royal Canin",
-        image: "/api/placeholder/60/60",
+        // Using a proper fallback image path that should exist in your public folder
+        image_url: "/images/placeholder.png",
+        images: [{ image_url: "/images/placeholder.png" }],
         size: "5kg",
         color: "Original",
         quantity: 2,
@@ -26,7 +28,8 @@ const PaymentSuccessPage = () => {
       {
         cart_item_id: 2,
         name: "Cat Scratching Post",
-        image: "/api/placeholder/60/60",
+        image_url: "/images/placeholder.png",
+        images: [{ image_url: "/images/placeholder.png" }],
         size: "Large",
         color: "Brown",
         quantity: 1,
@@ -36,7 +39,8 @@ const PaymentSuccessPage = () => {
       {
         cart_item_id: 3,
         name: "Pet Carrier Bag",
-        image: "/api/placeholder/60/60",
+        image_url: "/images/placeholder.png",
+        images: [{ image_url: "/images/placeholder.png" }],
         size: "Medium",
         color: "Blue",
         quantity: 1,
@@ -70,6 +74,24 @@ const PaymentSuccessPage = () => {
     paymentIntent: {
       id: "pi_" + Math.random().toString(36).substr(2, 24)
     }
+  };
+
+  // Function to get the correct image URL (matching ProductCard logic)
+  const getImageUrl = (item) => {
+    // Check for images array first (like in ProductCard)
+    if (item.images && item.images.length > 0 && item.images[0].image_url) {
+      return item.images[0].image_url;
+    }
+    // Fall back to direct image_url
+    if (item.image_url) {
+      return item.image_url;
+    }
+    // Fall back to image property
+    if (item.image) {
+      return item.image;
+    }
+    // Final fallback to placeholder
+    return "/images/placeholder.png";
   };
 
   useEffect(() => {
@@ -284,11 +306,17 @@ const PaymentSuccessPage = () => {
               <div className="space-y-4 mb-6">
                 {cartItems.map((item) => (
                   <div key={item.cart_item_id} className="flex items-center space-x-4 p-4 bg-[#F5F6ED] rounded-2xl">
-                    <img 
-                      src={item.image || '/api/placeholder/60/60'} 
-                      alt={item.name}
-                      className="w-16 h-16 object-cover rounded-lg bg-gray-200"
-                    />
+                    <div className="w-16 h-16 flex-shrink-0">
+                      <img 
+                        src={getImageUrl(item)}
+                        alt={item.name || 'Product'}
+                        className="w-full h-full object-cover rounded-lg bg-gray-200"
+                        onError={(e) => {
+                          console.log('Image failed to load, using placeholder');
+                          e.target.src = "/images/placeholder.png";
+                        }}
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
                       <div className="text-sm text-gray-600">
@@ -477,24 +505,6 @@ const PaymentSuccessPage = () => {
                 >
                   My Account
                 </button>
-
-                {/* Alternative: Direct links (if you prefer links over buttons) */}
-                {/* 
-                <a
-                  href={getProfileUrl('orders')}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  View All Orders
-                </a>
-                
-                <a
-                  href={getProfileUrl('general')}
-                  className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-2xl font-medium hover:border-gray-400 transition-colors"
-                >
-                  My Account
-                </a>
-                */}
               </div>
             </div>
           </div>
