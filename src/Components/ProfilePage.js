@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Edit, ChevronRight, Package, Gift, Bell, Heart, User, ShoppingBag, Mail, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, Truck } from 'lucide-react';
-import { api, API_BASE_URL, IMAGE_BASE_URL } from '../utils/api'; // Import from your API config file
+import { api, API_BASE_URL, IMAGE_BASE_URL } from '../utils/api';
+import OrderDetailsModal from './OrderDetails'; // Import the modal component
 
 const ProfilePage = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("General");
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -11,19 +15,22 @@ const ProfilePage = () => {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState(null);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   const menuItems = [
-    { key: "General", label: "General", icon: User },
-    { key: "MyOrders", label: "My Orders", icon: Package },
-    { key: "MyCoupons", label: "My Coupons", icon: Gift },
-    { key: "AllNotification", label: "All Notification", icon: Bell },
-    { key: "MyWishlist", label: "My Wishlist", icon: Heart },
+    { key: "General", label: "General", icon: User, path: "general" },
+    { key: "MyOrders", label: "My Orders", icon: Package, path: "orders" },
+    { key: "MyCoupons", label: "My Coupons", icon: Gift, path: "coupons" },
+    { key: "AllNotification", label: "All Notification", icon: Bell, path: "notifications" },
+    { key: "MyWishlist", label: "My Wishlist", icon: Heart, path: "wishlist" },
   ];
 
   // Function to get auth token from localStorage
   const getAuthToken = () => {
     try {
-      // First check localStorage
       const token = localStorage.getItem('token');
       const authStatus = localStorage.getItem("isAuthenticated");
       setIsAuthenticated(token && authStatus === "true");
@@ -31,13 +38,11 @@ const ProfilePage = () => {
         return token;
       }
       
-      // Fallback to sessionStorage
       const sessionToken = sessionStorage.getItem('auth_token');
       if (sessionToken) {
         return sessionToken;
       }
       
-      // Fallback to cookies
       const cookieToken = document.cookie
         .split('; ')
         .find(row => row.startsWith('auth_token='))
@@ -72,7 +77,7 @@ const ProfilePage = () => {
     return error.response?.data?.message || `Failed to load ${context}. Please try again later.`;
   };
 
-  // Function to fetch user orders using axios
+  // Function to fetch user orders
   const fetchUserOrders = async () => {
     try {
       setOrdersLoading(true);
@@ -88,7 +93,6 @@ const ProfilePage = () => {
       
       const response = await api.get('/orders');
       
-      // Handle the API response structure based on your example
       let ordersData = [];
       
       if (response.data.success && response.data.data) {
@@ -99,7 +103,6 @@ const ProfilePage = () => {
         ordersData = [];
       }
 
-      // Map orders to consistent format based on your API structure
       const mappedOrders = ordersData.map(order => ({
         id: order.id,
         orderNumber: order.order_number || `#ORD${order.id}`,
@@ -115,9 +118,7 @@ const ProfilePage = () => {
         user: order.user || null
       }));
 
-      // Sort orders by date (newest first)
       mappedOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
-
       setOrders(mappedOrders);
       
     } catch (err) {
@@ -129,14 +130,43 @@ const ProfilePage = () => {
     }
   };
 
-  // Handle tab change - fetch orders when My Orders tab is clicked
+  // Enhanced tab change handler with URL update
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey);
+    
+    // Update URL without page reload
+    const menuItem = menuItems.find(item => item.key === tabKey);
+    if (menuItem) {
+      navigate(`/profile?tab=${menuItem.path}`, { replace: true });
+    }
     
     if (tabKey === "MyOrders") {
       fetchUserOrders();
     }
   };
+
+  // Function to get tab key from URL path
+  const getTabFromUrl = () => {
+    const tab = searchParams.get('tab');
+    if (!tab) return "General";
+    
+    const menuItem = menuItems.find(item => item.path === tab);
+    return menuItem ? menuItem.key : "General";
+  };
+
+  // Initialize active tab from URL on component mount
+  useEffect(() => {
+    const urlTab = getTabFromUrl();
+    setActiveTab(urlTab);
+    
+    // If navigating directly to orders, fetch them
+    if (urlTab === "MyOrders") {
+      // Small delay to ensure component is fully mounted
+      setTimeout(() => {
+        fetchUserOrders();
+      }, 100);
+    }
+  }, [searchParams]);
 
   // Fetch user profile data
   useEffect(() => {
@@ -155,7 +185,6 @@ const ProfilePage = () => {
 
         const response = await api.get('/profile');
         
-        // Handle different API response structures
         let profileData = {};
         
         if (response.data.success && response.data.data) {
@@ -168,7 +197,6 @@ const ProfilePage = () => {
           profileData = response.data;
         }
 
-        // Map profile data to consistent format
         const mappedUserData = {
           id: profileData.id || profileData.user_id || profileData._id,
           firstName: profileData.first_name || profileData.firstName || profileData.fname || 
@@ -188,7 +216,6 @@ const ProfilePage = () => {
           totalOrders: parseInt(profileData.orders_count || profileData.totalOrders || profileData.total_orders || 0),
           activeCoupons: parseInt(profileData.coupons_count || profileData.activeCoupons || profileData.active_coupons || 0),
           avatar: profileData.avatar || profileData.profile_image || profileData.image || null,
-          // Additional fields that might be useful
           dateOfBirth: profileData.date_of_birth || profileData.dob || null,
           city: profileData.city || null,
           country: profileData.country || null,
@@ -200,8 +227,6 @@ const ProfilePage = () => {
       } catch (err) {
         const errorMessage = handleApiError(err, 'profile');
         setError(errorMessage);
-        
-        // Don't set mock data, let user know there's an issue
         setUserData(null);
       } finally {
         setLoading(false);
@@ -218,7 +243,6 @@ const ProfilePage = () => {
       const token = getAuthToken();
       
       if (token) {
-        // Attempt to call logout API
         try {
           const response = await api.post('/logout');
         } catch (logoutError) {
@@ -228,7 +252,6 @@ const ProfilePage = () => {
     } catch (error) {
       // Continue with logout process
     } finally {
-      // Clear all possible token storage locations
       try {
         localStorage.removeItem('token');
         localStorage.removeItem('auth_token');
@@ -244,7 +267,6 @@ const ProfilePage = () => {
       setUserData(null);
       setOrders([]);
       
-      // Redirect to login page
       window.location.href = '/user';
     }
   };
@@ -274,6 +296,18 @@ const ProfilePage = () => {
       default:
         return { color: 'text-gray-600', bgColor: 'bg-gray-100', icon: Clock, text: 'Pending' };
     }
+  };
+
+  // Function to handle view order details
+  const handleViewOrderDetails = (orderId) => {
+    setSelectedOrderId(orderId);
+    setIsModalOpen(true);
+  };
+
+  // Function to close modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedOrderId(null);
   };
 
   // Component for General tab
@@ -336,13 +370,17 @@ const ProfilePage = () => {
         <div className="mt-8 pt-6 border-t border-gray-200">
           <h3 className="text-lg font-semibold mb-4 text-gray-800">Account Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="bg-orange-50 p-4 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
+                 onClick={() => handleTabChange("MyOrders")}>
               <div className="text-2xl font-bold text-orange-500">{userData?.totalOrders || 0}</div>
               <div className="text-sm text-gray-600">Total Orders</div>
+              <div className="text-xs text-orange-600 mt-1">Click to view →</div>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
+            <div className="bg-green-50 p-4 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+                 onClick={() => handleTabChange("MyCoupons")}>
               <div className="text-2xl font-bold text-green-500">{userData?.activeCoupons || 0}</div>
               <div className="text-sm text-gray-600">Active Coupons</div>
+              <div className="text-xs text-green-600 mt-1">Click to view →</div>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg flex items-center">
               <Calendar className="w-6 h-6 mr-2 text-blue-500" />
@@ -456,7 +494,10 @@ const ProfilePage = () => {
                 )}
 
                 <div className="mt-4 flex justify-end space-x-3">
-                  <button className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                  <button 
+                    onClick={() => handleViewOrderDetails(order.id)}
+                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
                     View Details
                   </button>
                   {order.status === 'delivered' && (
@@ -469,7 +510,6 @@ const ProfilePage = () => {
             );
           })}
           
-          {/* Load more button if there are many orders */}
           {orders.length >= 10 && (
             <div className="text-center pt-4">
               <button className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -714,6 +754,13 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal 
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        orderId={selectedOrderId}
+      />
     </div>
   );
 };

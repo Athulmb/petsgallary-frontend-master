@@ -91,6 +91,26 @@ const StorePage = () => {
   const [products, setProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  // Helper function to calculate backend page from frontend page
+  const getFrontendToBackendPage = (frontendPage, totalBackendPages) => {
+    return totalBackendPages - frontendPage + 1;
+  };
+
+  // Helper function to calculate frontend total pages from backend data
+  const calculateFrontendTotalPages = (totalItems, perPage) => {
+    return Math.ceil(totalItems / perPage);
+  };
+
+  // Function to sort products by creation date (newest first) - additional sorting for consistency
+  const sortProductsByDate = (products) => {
+    return [...products].sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return dateB - dateA; // Descending order (newest first)
+    });
+  };
 
   // Check for category filter from navigation
   useEffect(() => {
@@ -99,37 +119,59 @@ const StorePage = () => {
     }
   }, [location.state]);
 
-  // Initial load
-  const fetchInitialData = async (page = 1) => {
+  // Initial load with reverse pagination
+  const fetchInitialData = async (frontendPage = 1) => {
     try {
       setLoading(true);
 
-      // Fetch price range and initial products
+      // First, get price range and total pages info
       const priceRes = await api.get('/get-all-active-products');
       const min = priceRes.data.min_price ?? 0;
       const max = priceRes.data.max_price ?? 5000;
       setMinPrice(min);
       setMaxPrice(max);
 
-      // Fetch all active products with pagination
+      // Get first page to determine total pages and items
+      const initialRes = await api.get('/get-all-active-products', {
+        params: { page: 1 }
+      });
+      
+      const initialPaginated = initialRes.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
+      const totalBackendPages = initialPaginated.last_page || 1;
+      const totalItems = initialPaginated.total || 0;
+      const perPage = initialPaginated.per_page || 12;
+      
+      // Calculate frontend total pages
+      const frontendTotalPages = calculateFrontendTotalPages(totalItems, perPage);
+      setTotalPages(frontendTotalPages);
+      setTotalProducts(totalItems);
+
+      // Calculate which backend page to fetch for the requested frontend page
+      const backendPage = getFrontendToBackendPage(frontendPage, totalBackendPages);
+
+      console.log(`🔄 Frontend page ${frontendPage} -> Backend page ${backendPage} (Total backend pages: ${totalBackendPages})`);
+
+      // Fetch products from the calculated backend page
       const productsRes = await api.get('/get-all-active-products', {
-        params: { page }
+        params: { page: Math.max(1, Math.min(backendPage, totalBackendPages)) }
       });
 
       const paginated = productsRes.data.products || { data: [], current_page: 1, last_page: 1 };
 
-      setProducts(paginated.data || []);
-      setFilteredProducts(paginated.data || []);
-      setCurrentPage(paginated.current_page || 1);
-      const totalItems = paginated.total || 0;
-      const perPage = paginated.per_page || 12;
-      const computedTotalPages = Math.ceil(totalItems / perPage);
-      setTotalPages(computedTotalPages);
+      // Sort products by creation date (newest first) for additional consistency
+      const sortedProducts = sortProductsByDate(paginated.data || []);
+
+      setProducts(sortedProducts);
+      setFilteredProducts(sortedProducts);
+      setCurrentPage(frontendPage);
+      
     } catch (error) {
       console.error("Initial load error:", error);
       // Set empty state on error
       setProducts([]);
       setFilteredProducts([]);
+      setTotalPages(1);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }
@@ -141,20 +183,21 @@ const StorePage = () => {
       // If we have a category filter, fetch filtered products instead
       fetchFilteredProducts("", [], [location.state.filterByPetType], null, 1);
     } else {
-      fetchInitialData();
+      fetchInitialData(1);
     }
   }, [location.state?.filterByPetType]);
 
+  // Fetch filtered products with reverse pagination
   const fetchFilteredProducts = async (
     search = "",
     productTypes = [],
     petTypes = [],
     priceRange = null,
-    page = 1
+    frontendPage = 1
   ) => {
     setLoading(true);
     try {
-      const params = { page };
+      const params = { page: 1 }; // Start with page 1 to get total pages
 
       // Only add parameters if they have values
       if (search.trim() !== "") params.search = search;
@@ -167,24 +210,49 @@ const StorePage = () => {
 
       console.log("🔍 Sending filters to backend:", params);
 
-      const response = await api.get('/get-filtered-products', {
+      // First get total pages for filtered results
+      const initialResponse = await api.get('/get-filtered-products', {
         params,
         paramsSerializer: params => qs.stringify(params, { arrayFormat: "brackets" }),
       });
 
+      const initialPaginated = initialResponse.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
+      const totalBackendPages = initialPaginated.last_page || 1;
+      const totalItems = initialPaginated.total || 0;
+      const perPage = initialPaginated.per_page || 12;
+
+      // Calculate frontend total pages
+      const frontendTotalPages = calculateFrontendTotalPages(totalItems, perPage);
+      setTotalPages(frontendTotalPages);
+      setTotalProducts(totalItems);
+
+      // Calculate which backend page to fetch for the requested frontend page
+      const backendPage = getFrontendToBackendPage(frontendPage, totalBackendPages);
+
+      console.log(`🔄 Filtered - Frontend page ${frontendPage} -> Backend page ${backendPage} (Total backend pages: ${totalBackendPages})`);
+
+      // Now fetch the actual page we want (reversed)
+      const finalParams = { ...params, page: Math.max(1, Math.min(backendPage, totalBackendPages)) };
+      const response = await api.get('/get-filtered-products', {
+        params: finalParams,
+        paramsSerializer: params => qs.stringify(params, { arrayFormat: "brackets" }),
+      });
+
       const paginated = response.data.products || { data: [], current_page: 1, last_page: 1 };
-      setFilteredProducts(paginated.data || []);
-      setCurrentPage(paginated.current_page || 1);
-      const totalItems = paginated.total || 0;
-      const perPage = paginated.per_page || 12;
-      const computedTotalPages = Math.ceil(totalItems / perPage);
-      setTotalPages(computedTotalPages);
+      
+      // Sort filtered products by creation date (newest first)
+      const sortedProducts = sortProductsByDate(paginated.data || []);
+      
+      setFilteredProducts(sortedProducts);
+      setCurrentPage(frontendPage);
+      
     } catch (error) {
       console.error("Filter fetch error:", error);
       // Set empty state on error
       setFilteredProducts([]);
       setTotalPages(1);
       setCurrentPage(1);
+      setTotalProducts(0);
     } finally {
       setLoading(false);
     }
@@ -200,7 +268,7 @@ const StorePage = () => {
     setSelectedPetTypes(filters.petTypes);
     setCurrentPage(1);
 
-    // Fetch filtered products
+    // Fetch filtered products starting from frontend page 1
     fetchFilteredProducts(
       searchQuery,
       filters.productTypes,
@@ -224,10 +292,10 @@ const StorePage = () => {
   };
 
   // Handle pagination
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > totalPages) return;
+  const handlePageChange = (newFrontendPage) => {
+    if (newFrontendPage < 1 || newFrontendPage > totalPages) return;
 
-    setCurrentPage(newPage);
+    console.log(`📄 Changing to frontend page ${newFrontendPage}`);
 
     // Check if any filters are active
     const hasActiveFilters =
@@ -242,10 +310,10 @@ const StorePage = () => {
         selectedProductType,
         selectedPetTypes,
         selectedRange,
-        newPage
+        newFrontendPage
       );
     } else {
-      fetchInitialData(newPage);
+      fetchInitialData(newFrontendPage);
     }
   };
 
@@ -268,6 +336,39 @@ const StorePage = () => {
       return `${location.state.categoryName} Products`;
     }
     return "Store";
+  };
+
+  // Generate pagination buttons with better logic
+  const generatePaginationButtons = () => {
+    const buttons = [];
+    const maxButtons = 5;
+    
+    if (totalPages <= maxButtons) {
+      // Show all pages if total pages is less than or equal to maxButtons
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(i);
+      }
+    } else {
+      // Complex pagination logic
+      if (currentPage <= 3) {
+        // Show first 5 pages
+        for (let i = 1; i <= maxButtons; i++) {
+          buttons.push(i);
+        }
+      } else if (currentPage >= totalPages - 2) {
+        // Show last 5 pages
+        for (let i = totalPages - maxButtons + 1; i <= totalPages; i++) {
+          buttons.push(i);
+        }
+      } else {
+        // Show current page and 2 pages on each side
+        for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+          buttons.push(i);
+        }
+      }
+    }
+    
+    return buttons;
   };
 
   return (
@@ -382,7 +483,9 @@ const StorePage = () => {
               {/* Results count */}
               <div className="mb-6">
                 <p className="text-gray-600">
-                  Showing {filteredProducts.length} products {totalPages > 1 && `(Page ${currentPage} of ${totalPages})`}
+                  Showing {filteredProducts.length} of {totalProducts} products 
+                  {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+                  <span className="text-sm text-orange-600 ml-2">(Newest products first)</span>
                 </p>
               </div>
 
@@ -399,7 +502,7 @@ const StorePage = () => {
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`px-4 py-2 rounded ${currentPage === 1
+                    className={`px-4 py-2 rounded transition-colors ${currentPage === 1
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-orange-400 text-white hover:bg-orange-500'
                       }`}
@@ -408,32 +511,24 @@ const StorePage = () => {
                   </button>
 
                   <div className="flex gap-2">
-                    {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                      const pageNum = currentPage <= 3
-                        ? index + 1
-                        : currentPage + index - 2;
-
-                      if (pageNum > totalPages) return null;
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-2 rounded ${currentPage === pageNum
-                            ? 'bg-orange-400 text-white'
-                            : 'bg-white text-gray-700 hover:bg-gray-100'
-                            }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+                    {generatePaginationButtons().map(pageNum => (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-2 rounded transition-colors ${currentPage === pageNum
+                          ? 'bg-orange-400 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
                   </div>
 
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`px-4 py-2 rounded ${currentPage === totalPages
+                    className={`px-4 py-2 rounded transition-colors ${currentPage === totalPages
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-orange-400 text-white hover:bg-orange-500'
                       }`}

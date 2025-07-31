@@ -69,7 +69,9 @@ export default function ShoppingCart() {
               ...res.data.product,
               // Ensure we maintain the cart item ID and product ID separately
               cart_item_id: item.id,
-              product_id: item.product_id
+              product_id: item.product_id,
+              // Fix image URL handling - use the same logic as ProductCard
+              image_url: res.data.product.images?.[0]?.image_url || res.data.product.image_url || "/images/placeholder.png"
             };
           } catch (productError) {
             console.error(`Error fetching product details for product_id ${item.product_id}:`, productError);
@@ -79,7 +81,7 @@ export default function ShoppingCart() {
               cart_item_id: item.id,
               name: `Product ${item.product_id} (Error loading details)`,
               price: 0,
-              image: "/placeholder.svg"
+              image_url: "/images/placeholder.png"
             };
           }
         })
@@ -268,11 +270,11 @@ export default function ShoppingCart() {
                   </button>
                   <div className="flex gap-4">
                     <img 
-                      src={product.image || "/placeholder.svg"} 
+                      src={product.image_url || "/images/placeholder.png"} 
                       alt={product.name || "Product"} 
                       className="h-20 w-20 object-cover rounded border" 
                       onError={(e) => {
-                        e.target.src = "/placeholder.svg";
+                        e.target.src = "/images/placeholder.png";
                       }}
                     />
                     <div className="flex flex-col justify-between flex-1">

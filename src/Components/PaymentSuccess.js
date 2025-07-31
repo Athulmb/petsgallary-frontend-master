@@ -1,21 +1,86 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Share2 } from 'lucide-react';
+import { useProfileNavigation, navigateToOrders} from '../utils/profileNavigation';
 
 const PaymentSuccessPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
+  const { safeGoToOrders, goToGeneral } = useProfileNavigation();
   const [orderData, setOrderData] = useState(null);
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
 
+  // Mock data for testing
+  const mockOrderData = {
+    cartItems: [
+      {
+        cart_item_id: 1,
+        name: "Premium Dog Food - Royal Canin",
+        image: "/api/placeholder/60/60",
+        size: "5kg",
+        color: "Original",
+        quantity: 2,
+        price: 299.99,
+        total_price: 599.98
+      },
+      {
+        cart_item_id: 2,
+        name: "Cat Scratching Post",
+        image: "/api/placeholder/60/60",
+        size: "Large",
+        color: "Brown",
+        quantity: 1,
+        price: 159.99,
+        total_price: 159.99
+      },
+      {
+        cart_item_id: 3,
+        name: "Pet Carrier Bag",
+        image: "/api/placeholder/60/60",
+        size: "Medium",
+        color: "Blue",
+        quantity: 1,
+        price: 89.99,
+        total_price: 89.99
+      }
+    ],
+    orderSummary: {
+      subtotal: 849.96,
+      shipping: 25.00,
+      tax: 43.75,
+      total: 918.71
+    },
+    deliveryAddress: {
+      fullName: "John Doe",
+      addressLine1: "123 Pet Street",
+      addressLine2: "Apartment 4B",
+      city: "Dubai",
+      state: "Dubai",
+      zipCode: "12345",
+      country: "UAE"
+    },
+    contactInfo: {
+      email: "john.doe@example.com",
+      phone: "+971 50 123 4567"
+    },
+    paymentMethod: "Credit Card",
+    amount: 918.71,
+    orderId: "PG-" + Date.now(),
+    transactionId: "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+    paymentIntent: {
+      id: "pi_" + Math.random().toString(36).substr(2, 24)
+    }
+  };
+
   useEffect(() => {
-    if (!state || !state.cartItems) {
-      console.warn('No order data found, redirecting to home');
-      navigate('/');
-      return;
+    // Use real data if available, otherwise use mock data for testing
+    const dataToUse = state || mockOrderData;
+    
+    if (!state) {
+      console.log('No real order data found, using mock data for testing');
     }
 
-    setOrderData(state);
+    setOrderData(dataToUse);
     
     // Calculate estimated delivery date (5-7 business days from now)
     const deliveryDate = new Date();
@@ -27,8 +92,45 @@ const PaymentSuccessPage = () => {
       day: 'numeric' 
     }));
 
-    console.log('Payment success page received data:', state);
-  }, [state, navigate]);
+    console.log('Payment success page data:', dataToUse);
+  }, [state]);
+
+  const handleContactSupport = () => {
+    const email = 'petsgallery033@gmail.com';
+    const subject = `Order Support - ${orderId || 'N/A'}`;
+    const body = `Hello,\n\nI need assistance with my order.\n\nOrder ID: ${orderId || 'N/A'}\nTransaction ID: ${transactionId || paymentIntent?.id || 'N/A'}\n\nPlease describe your issue below:\n\n`;
+    
+    const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+  };
+
+  // Enhanced navigation handlers
+  const handleViewAllOrders = () => {
+    console.log('Navigating to My Orders page...');
+    safeGoToOrders();
+  };
+
+  const handleGoToProfile = () => {
+    console.log('Navigating to Profile General page...');
+    goToGeneral();
+  };
+
+  // Alternative handler using direct navigation (if you need more control)
+  const handleDirectOrdersNavigation = () => {
+    // Check authentication first
+    const token = localStorage.getItem('token');
+    const authStatus = localStorage.getItem("isAuthenticated");
+    const isAuthenticated = token && authStatus === "true";
+    
+    if (!isAuthenticated) {
+      // Redirect to login if not authenticated
+      navigate('/user');
+      return;
+    }
+    
+    // Navigate directly to orders
+    navigateToOrders(navigate);
+  };
 
   if (!orderData) {
     return (
@@ -84,6 +186,19 @@ const PaymentSuccessPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
+      {/* Test Mode Indicator */}
+      {!state && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm">
+                <strong>Test Mode:</strong> This page is showing mock data for testing purposes.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="px-4 lg:px-[98px] py-4">
@@ -139,18 +254,18 @@ const PaymentSuccessPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="flex justify-center mb-8">
-            <button
-              onClick={handleShareOrder}
-              className="bg-[#FF9B57] text-white px-6 py-3 rounded-2xl font-medium hover:bg-[#FF8A42] transition-colors flex items-center justify-center"
-            >
-              <Share2 className="w-5 h-5 mr-2" />
-              Share Order
-            </button>
+              {/* Quick Action to View Orders */}
+              <div className="mt-4 pt-4 border-t border-green-200">
+                <button
+                  onClick={handleViewAllOrders}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Track This Order
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -279,9 +394,14 @@ const PaymentSuccessPage = () => {
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <button className="w-full bg-[#FF9B57] text-white py-3 rounded-2xl font-medium hover:bg-[#FF8A42] transition-colors">
-                    Track Your Order
+                {/* Enhanced Order Tracking Button */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleViewAllOrders}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
+                  >
+                    <Package className="w-4 h-4 mr-2" />
+                    View Order Details
                   </button>
                 </div>
               </div>
@@ -316,7 +436,10 @@ const PaymentSuccessPage = () => {
                     </div>
                   </div>
 
-                  <button className="w-full bg-green-600 text-white py-3 rounded-2xl font-medium hover:bg-green-700 transition-colors">
+                  <button 
+                    onClick={handleContactSupport}
+                    className="w-full bg-green-600 text-white py-3 rounded-2xl font-medium hover:bg-green-700 transition-colors"
+                  >
                     Contact Support
                   </button>
                 </div>
@@ -324,7 +447,7 @@ const PaymentSuccessPage = () => {
             </div>
           </div>
 
-          {/* Next Steps */}
+          {/* Next Steps - Enhanced with Proper Navigation */}
           <div className="mt-8 bg-white rounded-3xl shadow-sm p-6">
             <div className="text-center">
               <h3 className="text-xl font-semibold mb-4">What's Next?</h3>
@@ -338,18 +461,40 @@ const PaymentSuccessPage = () => {
                 >
                   Continue Shopping
                 </Link>
-                <Link
-                  to="/orders"
-                  className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-2xl font-medium hover:border-gray-400 transition-colors"
+                
+                {/* Enhanced Navigation Buttons */}
+                <button
+                  onClick={handleViewAllOrders}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
                 >
+                  <Package className="w-4 h-4 mr-2" />
                   View All Orders
-                </Link>
-                <Link
-                  to="/account"
+                </button>
+                
+                <button
+                  onClick={handleGoToProfile}
                   className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-2xl font-medium hover:border-gray-400 transition-colors"
                 >
                   My Account
-                </Link>
+                </button>
+
+                {/* Alternative: Direct links (if you prefer links over buttons) */}
+                {/* 
+                <a
+                  href={getProfileUrl('orders')}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  View All Orders
+                </a>
+                
+                <a
+                  href={getProfileUrl('general')}
+                  className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-2xl font-medium hover:border-gray-400 transition-colors"
+                >
+                  My Account
+                </a>
+                */}
               </div>
             </div>
           </div>
@@ -358,13 +503,17 @@ const PaymentSuccessPage = () => {
           <div className="mt-8 text-center">
             <div className="bg-gradient-to-r from-[#FF9B57] to-[#FF8A42] text-white rounded-3xl p-8">
               <h3 className="text-2xl font-bold mb-2">Thank You for Your Order!</h3>
-              <p className="text-lg opacity-90">
+              <p className="text-lg opacity-90 mb-4">
                 We appreciate your business and look forward to serving you again.
               </p>
+              <button
+                onClick={handleViewAllOrders}
+                className="bg-white text-[#FF9B57] px-6 py-2 rounded-xl font-medium hover:bg-gray-100 transition-colors"
+              >
+                Track Your Order
+              </button>
             </div>
           </div>
-
-        
         </div>
       </div>
     </div>
