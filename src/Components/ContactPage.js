@@ -135,15 +135,7 @@ export const ContactPage = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen py-10 px-4 sm:px-20">
-            {/* Test button for development */}
-            <div className="max-w-8xl w-full mb-4">
-                <button 
-                    onClick={handleTestLocalStorage}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm"
-                >
-                    Test localStorage (Check Console)
-                </button>
-            </div>
+            
 
             <div className="max-w-8xl w-full flex flex-col lg:flex-row gap-6">
                 {/* Left Section - Text */}

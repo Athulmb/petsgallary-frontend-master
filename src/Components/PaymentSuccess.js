@@ -16,7 +16,6 @@ const PaymentSuccessPage = () => {
   const [orderProcessingError, setOrderProcessingError] = useState(null);
   const [processingSteps, setProcessingSteps] = useState({
     orderCreated: false,
-    stockUpdated: false,
     cartCleared: false
   });
 
@@ -58,37 +57,6 @@ const PaymentSuccessPage = () => {
         }
       }
       throw error;
-    }
-  };
-
-  // Update stock quantities
-  const updateStockQuantities = async (cartItems, quantities) => {
-    try {
-      console.log('📦 Updating stock quantities...');
-      
-      const stockUpdateResponse = await fetch(`${API_BASE_URL}/products/update-quantity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          cartItems: cartItems.map(item => ({
-            ...item,
-            quantity: quantities[item.cart_item_id] || item.quantity || 1
-          }))
-        }),
-      });
-
-      const stockUpdateData = await stockUpdateResponse.json();
-      
-      if (!stockUpdateResponse.ok) {
-        console.error('⚠️ Stock update failed:', stockUpdateData.message);
-        return { success: false, message: stockUpdateData.message };
-      } else {
-        console.log('✅ Stock updated successfully');
-        return { success: true, message: 'Stock updated successfully' };
-      }
-    } catch (stockErr) {
-      console.error('⚠️ Stock update failed:', stockErr);
-      return { success: false, message: stockErr.message };
     }
   };
 
@@ -147,7 +115,6 @@ const PaymentSuccessPage = () => {
     
     const steps = {
       orderCreated: false,
-      stockUpdated: false,
       cartCleared: false
     };
 
@@ -194,20 +161,7 @@ const PaymentSuccessPage = () => {
       setProcessingSteps(prev => ({ ...prev, orderCreated: true }));
       console.log('✅ Order created successfully:', order);
 
-      // STEP 2: Update stock
-      console.log('📦 Updating stock quantities...');
-      const stockUpdateResult = await updateStockQuantities(cartItems, quantities);
-      
-      steps.stockUpdated = stockUpdateResult.success;
-      setProcessingSteps(prev => ({ ...prev, stockUpdated: stockUpdateResult.success }));
-      
-      if (stockUpdateResult.success) {
-        console.log('✅ Stock updated successfully');
-      } else {
-        console.warn('⚠️ Stock update failed:', stockUpdateResult.message);
-      }
-
-      // STEP 3: Clear cart
+      // STEP 2: Clear cart
       console.log('🧹 Clearing cart...');
       const cartClearResult = await clearCart(cartItems, token);
       
@@ -225,8 +179,6 @@ const PaymentSuccessPage = () => {
         ...orderData,
         order,
         orderId: order?.orderId || order?._id || `PG-${Date.now()}`,
-        stockUpdateSuccess: stockUpdateResult.success,
-        stockUpdateMessage: stockUpdateResult.message,
         cartCleared: cartClearResult.success,
         cartClearMessage: cartClearResult.message,
         processingSteps: steps
@@ -394,14 +346,6 @@ const PaymentSuccessPage = () => {
                 )}
                 Creating Order
               </div>
-              <div className={`flex items-center ${processingSteps.stockUpdated ? 'text-green-600' : 'text-gray-500'}`}>
-                {processingSteps.stockUpdated ? (
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                ) : (
-                  <div className="w-4 h-4 mr-2 border-2 border-gray-300 rounded-full"></div>
-                )}
-                Updating Stock
-              </div>
               <div className={`flex items-center ${processingSteps.cartCleared ? 'text-green-600' : 'text-gray-500'}`}>
                 {processingSteps.cartCleared ? (
                   <CheckCircle className="w-4 h-4 mr-2" />
@@ -474,9 +418,7 @@ const PaymentSuccessPage = () => {
     paymentIntent,
     transactionId,
     processingError,
-    stockUpdateSuccess,
     cartCleared,
-    stockUpdateMessage,
     cartClearMessage
   } = orderData;
 
@@ -504,7 +446,7 @@ const PaymentSuccessPage = () => {
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
       {/* Processing Status Warnings */}
-      {(processingError || !stockUpdateSuccess || !cartCleared) && (
+      {(processingError || !cartCleared) && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
           <div className="flex">
             <AlertCircle className="w-5 h-5 mr-3 mt-0.5" />
@@ -518,11 +460,6 @@ const PaymentSuccessPage = () => {
                     Please contact support with your transaction details.
                   </p>
                 </>
-              )}
-              {!stockUpdateSuccess && (
-                <p className="text-sm">
-                  <strong>Stock Update:</strong> {stockUpdateMessage || 'Failed to update product stock'}
-                </p>
               )}
               {!cartCleared && (
                 <p className="text-sm">
@@ -602,14 +539,6 @@ const PaymentSuccessPage = () => {
                         <AlertCircle className="w-4 h-4 mr-2" />
                       )}
                       Order Creation: {orderData.processingSteps.orderCreated ? 'Success' : 'Failed'}
-                    </div>
-                    <div className={`flex items-center ${orderData.processingSteps.stockUpdated ? 'text-green-600' : 'text-orange-500'}`}>
-                      {orderData.processingSteps.stockUpdated ? (
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                      )}
-                      Stock Update: {orderData.processingSteps.stockUpdated ? 'Success' : 'Warning'}
                     </div>
                     <div className={`flex items-center ${orderData.processingSteps.cartCleared ? 'text-green-600' : 'text-orange-500'}`}>
                       {orderData.processingSteps.cartCleared ? (

@@ -72,9 +72,9 @@ const CheckoutPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Calculate shipping
+  // Calculate shipping - Always free now
   const calculateShipping = () => {
-    return orderSummary.total > 200 ? 0 : 25; // Free shipping over DH 200
+    return 0; // Free shipping for all orders
   };
 
   // Build delivery address object
@@ -126,7 +126,7 @@ const CheckoutPage = () => {
       }
 
       console.log('🚀 Processing Stripe payment...');
-      console.log('Final total including shipping:', finalTotal);
+      console.log('Final total with free shipping:', finalTotal);
 
       // Create Stripe checkout session
       const stripePayload = {
@@ -148,7 +148,7 @@ const CheckoutPage = () => {
         cancelUrl: `${window.location.origin}/payment-failed`
       };
 
-      console.log('Stripe payload with shipping cost:', stripePayload);
+      console.log('Stripe payload with free shipping:', stripePayload);
 
       // Call the PHP Stripe checkout endpoint
       const response = await axios.post(`${API_BASE_URL}/stripe/checkout`, stripePayload, {
@@ -514,7 +514,7 @@ const CheckoutPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Shipping</span>
-              <span>{shippingCost === 0 ? 'Free' : `AED ${shippingCost.toFixed(2)}`}</span>
+              <span className="text-green-600 font-medium">Free</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">VAT</span>
