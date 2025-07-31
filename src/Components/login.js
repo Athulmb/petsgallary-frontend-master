@@ -129,7 +129,7 @@ export default function LoginForm() {
         <div className="w-full md:w-2/5 p-4 md:p-14 flex flex-col justify-center">
           <div className="flex justify-center">
             <div className="h-30 w-30 flex items-center justify-center">
-              <img src="/logo png 1.png" alt="Login Icon" className="h-25 w-25" />
+              <img src="/logopng1.png" alt="Login Icon" className="h-25 w-25" />
             </div>
           </div>
 
