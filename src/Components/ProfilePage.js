@@ -468,9 +468,7 @@ const ProfilePage = () => {
                       <p className="text-lg font-semibold text-gray-800">
                         {order.currency} {order.total.toFixed(2)}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        {order.itemsCount} item{order.itemsCount !== 1 ? 's' : ''}
-                      </p>
+                     
                     </div>
                   </div>
                 </div>
@@ -480,10 +478,7 @@ const ProfilePage = () => {
                     <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
                     <p className="text-sm text-gray-800">{order.shippingAddress}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Payment Method</p>
-                    <p className="text-sm text-gray-800">{order.paymentMethod}</p>
-                  </div>
+                
                 </div>
 
                 {order.trackingNumber && (

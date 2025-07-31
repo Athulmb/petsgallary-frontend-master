@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Share2 } from 'lucide-react';
+import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Share2, AlertCircle } from 'lucide-react';
 import { useProfileNavigation, navigateToOrders} from '../utils/profileNavigation';
+import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
+import { api } from '../utils/api';
 
 const PaymentSuccessPage = () => {
   const { state } = useLocation();
@@ -9,124 +12,341 @@ const PaymentSuccessPage = () => {
   const { safeGoToOrders, goToGeneral } = useProfileNavigation();
   const [orderData, setOrderData] = useState(null);
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+  const [orderProcessingError, setOrderProcessingError] = useState(null);
+  const [processingSteps, setProcessingSteps] = useState({
+    orderCreated: false,
+    stockUpdated: false,
+    cartCleared: false
+  });
 
-  // Mock data for testing - Updated with proper image handling
-  const mockOrderData = {
-    cartItems: [
-      {
-        cart_item_id: 1,
-        name: "Premium Dog Food - Royal Canin",
-        // Using a proper fallback image path that should exist in your public folder
-        image_url: "/images/placeholder.png",
-        images: [{ image_url: "/images/placeholder.png" }],
-        size: "5kg",
-        color: "Original",
-        quantity: 2,
-        price: 299.99,
-        total_price: 599.98
-      },
-      {
-        cart_item_id: 2,
-        name: "Cat Scratching Post",
-        image_url: "/images/placeholder.png",
-        images: [{ image_url: "/images/placeholder.png" }],
-        size: "Large",
-        color: "Brown",
-        quantity: 1,
-        price: 159.99,
-        total_price: 159.99
-      },
-      {
-        cart_item_id: 3,
-        name: "Pet Carrier Bag",
-        image_url: "/images/placeholder.png",
-        images: [{ image_url: "/images/placeholder.png" }],
-        size: "Medium",
-        color: "Blue",
-        quantity: 1,
-        price: 89.99,
-        total_price: 89.99
+  // Create order function
+  const createOrder = async (orderPayload) => {
+    try {
+      console.log('Creating order with payload:', orderPayload);
+      
+      const response = await axios.post(`${API_BASE_URL}/orders`, orderPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${orderPayload.token}`
+        }
+      });
+
+      console.log('Order creation response:', response.data);
+
+      if (response.data.success || response.status === 201 || response.status === 200) {
+        return response.data.order || response.data.data || response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to create order');
       }
-    ],
-    orderSummary: {
-      subtotal: 849.96,
-      shipping: 25.00,
-      tax: 43.75,
-      total: 918.71
-    },
-    deliveryAddress: {
-      fullName: "John Doe",
-      addressLine1: "123 Pet Street",
-      addressLine2: "Apartment 4B",
-      city: "Dubai",
-      state: "Dubai",
-      zipCode: "12345",
-      country: "UAE"
-    },
-    contactInfo: {
-      email: "john.doe@example.com",
-      phone: "+971 50 123 4567"
-    },
-    paymentMethod: "Credit Card",
-    amount: 918.71,
-    orderId: "PG-" + Date.now(),
-    transactionId: "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
-    paymentIntent: {
-      id: "pi_" + Math.random().toString(36).substr(2, 24)
+    } catch (error) {
+      console.error('Error creating order:', error);
+      
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        switch (error.response.status) {
+          case 404:
+            throw new Error('Order creation endpoint not found. Please contact support.');
+          case 401:
+            throw new Error('Authentication failed. Please login again.');
+          case 422:
+            throw new Error('Invalid order data. Please check your information.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(error.response.data?.message || 'Failed to create order');
+        }
+      }
+      throw error;
     }
   };
 
-  // Function to get the correct image URL (matching ProductCard logic)
+  // Update stock quantities
+  const updateStockQuantities = async (cartItems, quantities) => {
+    try {
+      console.log('📦 Updating stock quantities...');
+      
+      const stockUpdateResponse = await fetch(`${API_BASE_URL}/products/update-quantity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          cartItems: cartItems.map(item => ({
+            ...item,
+            quantity: quantities[item.cart_item_id] || item.quantity || 1
+          }))
+        }),
+      });
+
+      const stockUpdateData = await stockUpdateResponse.json();
+      
+      if (!stockUpdateResponse.ok) {
+        console.error('⚠️ Stock update failed:', stockUpdateData.message);
+        return { success: false, message: stockUpdateData.message };
+      } else {
+        console.log('✅ Stock updated successfully');
+        return { success: true, message: 'Stock updated successfully' };
+      }
+    } catch (stockErr) {
+      console.error('⚠️ Stock update failed:', stockErr);
+      return { success: false, message: stockErr.message };
+    }
+  };
+
+  // Clear cart items
+  const clearCart = async (cartItems, token) => {
+    if (!token || !cartItems.length) {
+      console.log('No token or cart items to clear');
+      return { success: true, message: 'No items to clear' };
+    }
+
+    try {
+      console.log('🧹 Clearing cart items...');
+      
+      const deletePromises = cartItems.map(async (item) => {
+        try {
+          const response = await api.delete(`/cart/delete/${item.cart_item_id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          console.log(`✅ Deleted cart item ${item.cart_item_id}:`, response.data);
+          return { success: true, cartItemId: item.cart_item_id };
+        } catch (error) {
+          console.error(`❌ Failed to delete cart item ${item.cart_item_id}:`, error);
+          return { success: false, cartItemId: item.cart_item_id, error: error.message };
+        }
+      });
+
+      const results = await Promise.all(deletePromises);
+      
+      const failed = results.filter(result => !result.success);
+      
+      if (failed.length === 0) {
+        console.log('✅ All cart items cleared successfully');
+        return { success: true, message: 'Cart cleared successfully' };
+      } else {
+        console.warn(`⚠️ Failed to clear ${failed.length} cart items:`, failed);
+        return { 
+          success: false, 
+          message: `Failed to clear ${failed.length} items`, 
+          failedItems: failed 
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ Error clearing cart:', error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Process order after payment success
+  const processOrder = async (orderData) => {
+    setIsProcessingOrder(true);
+    setOrderProcessingError(null);
+    
+    const steps = {
+      orderCreated: false,
+      stockUpdated: false,
+      cartCleared: false
+    };
+
+    try {
+      console.log('🚀 Processing order after successful payment...');
+      
+      const {
+        cartItems,
+        quantities,
+        deliveryAddress,
+        orderSummary,
+        customerInfo,
+        token,
+        userId
+      } = orderData;
+
+      // Format shipping address as a single string
+      const shippingAddress = `${deliveryAddress.houseNumber || ''}, ${deliveryAddress.street}, ${deliveryAddress.city}, ${deliveryAddress.zipCode || ''}, ${deliveryAddress.country}`;
+      
+      // Format the order payload
+      const orderPayload = {
+        shipping_address: shippingAddress,
+        items: cartItems.map(item => ({
+          product_id: item.product_id,
+          cart_item_id: item.cart_item_id,
+          product_name: item.name,
+          quantity: quantities[item.cart_item_id] || item.quantity || 1,
+          price: parseFloat(item.price)
+        })),
+        order_summary: orderSummary,
+        customer_info: customerInfo,
+        token: token
+      };
+
+      // STEP 1: Create order
+      console.log('📋 Creating order...');
+      const order = await createOrder(orderPayload);
+      
+      if (!order) {
+        throw new Error('Order creation returned empty result');
+      }
+      
+      steps.orderCreated = true;
+      setProcessingSteps(prev => ({ ...prev, orderCreated: true }));
+      console.log('✅ Order created successfully:', order);
+
+      // STEP 2: Update stock
+      console.log('📦 Updating stock quantities...');
+      const stockUpdateResult = await updateStockQuantities(cartItems, quantities);
+      
+      steps.stockUpdated = stockUpdateResult.success;
+      setProcessingSteps(prev => ({ ...prev, stockUpdated: stockUpdateResult.success }));
+      
+      if (stockUpdateResult.success) {
+        console.log('✅ Stock updated successfully');
+      } else {
+        console.warn('⚠️ Stock update failed:', stockUpdateResult.message);
+      }
+
+      // STEP 3: Clear cart
+      console.log('🧹 Clearing cart...');
+      const cartClearResult = await clearCart(cartItems, token);
+      
+      steps.cartCleared = cartClearResult.success;
+      setProcessingSteps(prev => ({ ...prev, cartCleared: cartClearResult.success }));
+      
+      if (cartClearResult.success) {
+        console.log('✅ Cart cleared successfully');
+      } else {
+        console.warn('⚠️ Cart clearing failed:', cartClearResult.message);
+      }
+
+      // Prepare final order data
+      const finalOrderData = {
+        ...orderData,
+        order,
+        orderId: order?.orderId || order?._id || `PG-${Date.now()}`,
+        stockUpdateSuccess: stockUpdateResult.success,
+        stockUpdateMessage: stockUpdateResult.message,
+        cartCleared: cartClearResult.success,
+        cartClearMessage: cartClearResult.message,
+        processingSteps: steps
+      };
+
+      console.log('✅ Order processed successfully:', finalOrderData);
+      
+      // Clear pending data if it exists
+      sessionStorage.removeItem('pendingOrderData');
+      
+      return finalOrderData;
+
+    } catch (error) {
+      console.error('🔥 Error processing order:', error);
+      setOrderProcessingError(error.message);
+      
+      return {
+        ...orderData,
+        processingError: error.message,
+        orderId: `FAILED-${Date.now()}`,
+        processingSteps: steps
+      };
+    } finally {
+      setIsProcessingOrder(false);
+    }
+  };
+
+  // Process Stripe payment success
+  const processStripeOrder = async (pendingData) => {
+    console.log('Processing Stripe order from sessionStorage...');
+    
+    // Add payment intent info for Stripe orders
+    const stripeOrderData = {
+      ...pendingData,
+      paymentIntent: { 
+        id: `stripe_${pendingData.sessionId}`, 
+        status: 'succeeded' 
+      }
+    };
+    
+    return await processOrder(stripeOrderData);
+  };
+
+  // Process COD order
+  const processCODOrder = async (codOrderData) => {
+    console.log('Processing COD order from navigation state...');
+    return await processOrder(codOrderData);
+  };
+
+  // Function to get the correct image URL
   const getImageUrl = (item) => {
-    // Check for images array first (like in ProductCard)
     if (item.images && item.images.length > 0 && item.images[0].image_url) {
       return item.images[0].image_url;
     }
-    // Fall back to direct image_url
     if (item.image_url) {
       return item.image_url;
     }
-    // Fall back to image property
     if (item.image) {
       return item.image;
     }
-    // Final fallback to placeholder
     return "/images/placeholder.png";
   };
 
   useEffect(() => {
-    // Use real data if available, otherwise use mock data for testing
-    const dataToUse = state || mockOrderData;
-    
-    if (!state) {
-      console.log('No real order data found, using mock data for testing');
-    }
+    const initializeOrderData = async () => {
+      // Check for pending Stripe order first
+      const pendingDataString = sessionStorage.getItem('pendingOrderData');
+      
+      if (pendingDataString) {
+        console.log('Found pending Stripe order data, processing...');
+        
+        try {
+          const pendingData = JSON.parse(pendingDataString);
+          const processedOrderData = await processStripeOrder(pendingData);
+          setOrderData(processedOrderData);
+        } catch (error) {
+          console.error('Error parsing pending order data:', error);
+          setOrderProcessingError('Failed to process order data');
+          
+          // Fallback to state data if available
+          if (state) {
+            const processedOrderData = await processCODOrder(state);
+            setOrderData(processedOrderData);
+          }
+        }
+      } else if (state) {
+        // Use data from navigation state (COD orders)
+        console.log('Using order data from navigation state (COD)');
+        const processedOrderData = await processCODOrder(state);
+        setOrderData(processedOrderData);
+      } else {
+        // No order data found - redirect to home or show error
+        console.log('No order data found');
+        navigate('/', { replace: true });
+        return;
+      }
 
-    setOrderData(dataToUse);
-    
-    // Calculate estimated delivery date (5-7 business days from now)
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + 6);
-    setEstimatedDelivery(deliveryDate.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    }));
+      // Calculate estimated delivery date
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + 6);
+      setEstimatedDelivery(deliveryDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }));
+    };
 
-    console.log('Payment success page data:', dataToUse);
-  }, [state]);
+    initializeOrderData();
+  }, [state, navigate]);
 
   const handleContactSupport = () => {
     const email = 'petsgallery033@gmail.com';
-    const subject = `Order Support - ${orderId || 'N/A'}`;
-    const body = `Hello,\n\nI need assistance with my order.\n\nOrder ID: ${orderId || 'N/A'}\nTransaction ID: ${transactionId || paymentIntent?.id || 'N/A'}\n\nPlease describe your issue below:\n\n`;
+    const subject = `Order Support - ${orderData?.orderId || 'N/A'}`;
+    const body = `Hello,\n\nI need assistance with my order.\n\nOrder ID: ${orderData?.orderId || 'N/A'}\nTransaction ID: ${orderData?.transactionId || orderData?.paymentIntent?.id || 'N/A'}\n\nPlease describe your issue below:\n\n`;
     
     const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
   };
 
-  // Enhanced navigation handlers
   const handleViewAllOrders = () => {
     console.log('Navigating to My Orders page...');
     safeGoToOrders();
@@ -137,22 +357,101 @@ const PaymentSuccessPage = () => {
     goToGeneral();
   };
 
-  // Alternative handler using direct navigation (if you need more control)
-  const handleDirectOrdersNavigation = () => {
-    // Check authentication first
-    const token = localStorage.getItem('token');
-    const authStatus = localStorage.getItem("isAuthenticated");
-    const isAuthenticated = token && authStatus === "true";
-    
-    if (!isAuthenticated) {
-      // Redirect to login if not authenticated
-      navigate('/user');
-      return;
+  const handleRetryOrderProcessing = async () => {
+    const pendingDataString = sessionStorage.getItem('pendingOrderData');
+    if (pendingDataString) {
+      try {
+        const pendingData = JSON.parse(pendingDataString);
+        const processedOrderData = await processStripeOrder(pendingData);
+        setOrderData(processedOrderData);
+      } catch (error) {
+        console.error('Retry failed:', error);
+      }
+    } else if (state) {
+      const processedOrderData = await processCODOrder(state);
+      setOrderData(processedOrderData);
     }
-    
-    // Navigate directly to orders
-    navigateToOrders(navigate);
   };
+
+  // Loading state with processing steps
+  if (isProcessingOrder) {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-6"></div>
+          <h2 className="text-2xl font-semibold mb-4">Processing Your Order...</h2>
+          <p className="text-gray-600 mb-6">Please wait while we finalize your order details.</p>
+          
+          {/* Processing Steps */}
+          <div className="bg-white rounded-lg p-4 text-left">
+            <h3 className="font-medium mb-3">Processing Steps:</h3>
+            <div className="space-y-2 text-sm">
+              <div className={`flex items-center ${processingSteps.orderCreated ? 'text-green-600' : 'text-gray-500'}`}>
+                {processingSteps.orderCreated ? (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                ) : (
+                  <div className="w-4 h-4 mr-2 border-2 border-gray-300 rounded-full animate-spin border-t-green-500"></div>
+                )}
+                Creating Order
+              </div>
+              <div className={`flex items-center ${processingSteps.stockUpdated ? 'text-green-600' : 'text-gray-500'}`}>
+                {processingSteps.stockUpdated ? (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                ) : (
+                  <div className="w-4 h-4 mr-2 border-2 border-gray-300 rounded-full"></div>
+                )}
+                Updating Stock
+              </div>
+              <div className={`flex items-center ${processingSteps.cartCleared ? 'text-green-600' : 'text-gray-500'}`}>
+                {processingSteps.cartCleared ? (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                ) : (
+                  <div className="w-4 h-4 mr-2 border-2 border-gray-300 rounded-full"></div>
+                )}
+                Clearing Cart
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (orderProcessingError && !orderData) {
+    return (
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold mb-4 text-red-600">Order Processing Error</h2>
+          <p className="text-gray-600 mb-6">{orderProcessingError}</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={handleRetryOrderProcessing}
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              Retry Order Processing
+            </button>
+            
+            <button
+              onClick={handleContactSupport}
+              className="w-full bg-gray-600 text-white py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+            >
+              Contact Support
+            </button>
+            
+            <Link
+              to="/"
+              className="block w-full bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:border-gray-400 transition-colors text-center"
+            >
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!orderData) {
     return (
@@ -167,26 +466,22 @@ const PaymentSuccessPage = () => {
     orderSummary = {},
     deliveryAddress = {},
     contactInfo = {},
+    customerInfo = {},
     paymentMethod = 'Unknown',
     amount,
+    totalAmount,
     orderId,
     paymentIntent,
-    transactionId
+    transactionId,
+    processingError,
+    stockUpdateSuccess,
+    cartCleared,
+    stockUpdateMessage,
+    cartClearMessage
   } = orderData;
 
-  const handleShareOrder = () => {
-    // Placeholder for sharing functionality
-    if (navigator.share) {
-      navigator.share({
-        title: 'My Order Confirmation',
-        text: `Order #${orderId || 'N/A'} has been confirmed!`,
-        url: window.location.href,
-      });
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`Order #${orderId || 'N/A'} confirmed! ${window.location.href}`);
-    }
-  };
+  const finalContactInfo = contactInfo || customerInfo || {};
+  const finalAmount = amount || totalAmount || orderSummary.finalTotal || orderSummary.total || 0;
 
   const getSuccessIcon = () => {
     return <CheckCircle className="w-12 h-12 text-green-600" />;
@@ -208,14 +503,32 @@ const PaymentSuccessPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
-      {/* Test Mode Indicator */}
-      {!state && (
+      {/* Processing Status Warnings */}
+      {(processingError || !stockUpdateSuccess || !cartCleared) && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
           <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm">
-                <strong>Test Mode:</strong> This page is showing mock data for testing purposes.
-              </p>
+            <AlertCircle className="w-5 h-5 mr-3 mt-0.5" />
+            <div>
+              {processingError && (
+                <>
+                  <p className="text-sm">
+                    <strong>Note:</strong> Your payment was successful, but there was an issue processing your order: {processingError}
+                  </p>
+                  <p className="text-sm mt-1">
+                    Please contact support with your transaction details.
+                  </p>
+                </>
+              )}
+              {!stockUpdateSuccess && (
+                <p className="text-sm">
+                  <strong>Stock Update:</strong> {stockUpdateMessage || 'Failed to update product stock'}
+                </p>
+              )}
+              {!cartCleared && (
+                <p className="text-sm">
+                  <strong>Cart:</strong> {cartClearMessage || 'Failed to clear cart items'}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -277,7 +590,39 @@ const PaymentSuccessPage = () => {
                 </div>
               )}
 
-              {/* Quick Action to View Orders */}
+              {/* Processing Status */}
+              {orderData.processingSteps && (
+                <div className="bg-white rounded-lg p-4 mt-4">
+                  <h4 className="font-medium text-gray-700 mb-3">Processing Status:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className={`flex items-center ${orderData.processingSteps.orderCreated ? 'text-green-600' : 'text-red-500'}`}>
+                      {orderData.processingSteps.orderCreated ? (
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Order Creation: {orderData.processingSteps.orderCreated ? 'Success' : 'Failed'}
+                    </div>
+                    <div className={`flex items-center ${orderData.processingSteps.stockUpdated ? 'text-green-600' : 'text-orange-500'}`}>
+                      {orderData.processingSteps.stockUpdated ? (
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Stock Update: {orderData.processingSteps.stockUpdated ? 'Success' : 'Warning'}
+                    </div>
+                    <div className={`flex items-center ${orderData.processingSteps.cartCleared ? 'text-green-600' : 'text-orange-500'}`}>
+                      {orderData.processingSteps.cartCleared ? (
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Cart Cleanup: {orderData.processingSteps.cartCleared ? 'Success' : 'Warning'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 pt-4 border-t border-green-200">
                 <button
                   onClick={handleViewAllOrders}
@@ -304,8 +649,8 @@ const PaymentSuccessPage = () => {
 
               {/* Order Items */}
               <div className="space-y-4 mb-6">
-                {cartItems.map((item) => (
-                  <div key={item.cart_item_id} className="flex items-center space-x-4 p-4 bg-[#F5F6ED] rounded-2xl">
+                {cartItems.map((item, index) => (
+                  <div key={item.cart_item_id || index} className="flex items-center space-x-4 p-4 bg-[#F5F6ED] rounded-2xl">
                     <div className="w-16 h-16 flex-shrink-0">
                       <img 
                         src={getImageUrl(item)}
@@ -326,7 +671,7 @@ const PaymentSuccessPage = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900">
-                        DH {item.total_price?.toFixed(2) || (item.price * item.quantity).toFixed(2)}
+                        AED {item.total_price?.toFixed(2) || (item.price * item.quantity).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -338,7 +683,7 @@ const PaymentSuccessPage = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total Paid:</span>
                   <span className="text-2xl font-bold text-green-600">
-                    DH {amount?.toFixed(2) || orderSummary.total?.toFixed(2) || '0.00'}
+                    AED {finalAmount.toFixed(2)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
@@ -371,8 +716,10 @@ const PaymentSuccessPage = () => {
                       <h4 className="font-medium text-gray-800 mb-2">Delivery Address:</h4>
                       <div className="text-sm text-gray-600 space-y-1">
                         <p>{deliveryAddress.fullName}</p>
-                        <p>{deliveryAddress.addressLine1}</p>
-                        {deliveryAddress.addressLine2 && <p>{deliveryAddress.addressLine2}</p>}
+                        <p>{deliveryAddress.addressLine1 || deliveryAddress.street}</p>
+                        {(deliveryAddress.addressLine2 || deliveryAddress.houseNumber) && (
+                          <p>{deliveryAddress.addressLine2 || deliveryAddress.houseNumber}</p>
+                        )}
                         <p>{deliveryAddress.city}, {deliveryAddress.state} {deliveryAddress.zipCode}</p>
                         <p>{deliveryAddress.country}</p>
                       </div>
@@ -422,7 +769,6 @@ const PaymentSuccessPage = () => {
                   </div>
                 </div>
 
-                {/* Enhanced Order Tracking Button */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <button
                     onClick={handleViewAllOrders}
@@ -475,7 +821,7 @@ const PaymentSuccessPage = () => {
             </div>
           </div>
 
-          {/* Next Steps - Enhanced with Proper Navigation */}
+          {/* Next Steps */}
           <div className="mt-8 bg-white rounded-3xl shadow-sm p-6">
             <div className="text-center">
               <h3 className="text-xl font-semibold mb-4">What's Next?</h3>
@@ -490,7 +836,6 @@ const PaymentSuccessPage = () => {
                   Continue Shopping
                 </Link>
                 
-                {/* Enhanced Navigation Buttons */}
                 <button
                   onClick={handleViewAllOrders}
                   className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"

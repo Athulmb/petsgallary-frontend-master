@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/api'; // Adjust import path as needed
-import { api } from '../utils/api'; // Import the api utility for cart operations
 
 const CheckoutPage = () => {
   const { state } = useLocation();
@@ -93,154 +92,7 @@ const CheckoutPage = () => {
     zipCode: formData.zipCode
   });
 
-  // Clear all cart items after successful payment
-  const clearCart = async () => {
-    const token = userInfo.token || localStorage.getItem('token');
-    
-    if (!token || !cartItems.length) {
-      console.log('No token or cart items to clear');
-      return { success: true, message: 'No items to clear' };
-    }
-
-    try {
-      console.log('🧹 Clearing cart items...');
-      
-      // Delete each cart item using the cart_item_id
-      const deletePromises = cartItems.map(async (item) => {
-        try {
-          const response = await api.delete(`/cart/delete/${item.cart_item_id}`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          
-          console.log(`✅ Deleted cart item ${item.cart_item_id}:`, response.data);
-          return { success: true, cartItemId: item.cart_item_id };
-        } catch (error) {
-          console.error(`❌ Failed to delete cart item ${item.cart_item_id}:`, error);
-          return { success: false, cartItemId: item.cart_item_id, error: error.message };
-        }
-      });
-
-      const results = await Promise.all(deletePromises);
-      
-      // Check if all deletions were successful
-      const failed = results.filter(result => !result.success);
-      
-      if (failed.length === 0) {
-        console.log('✅ All cart items cleared successfully');
-        return { success: true, message: 'Cart cleared successfully' };
-      } else {
-        console.warn(`⚠️ Failed to clear ${failed.length} cart items:`, failed);
-        return { 
-          success: false, 
-          message: `Failed to clear ${failed.length} items`, 
-          failedItems: failed 
-        };
-      }
-      
-    } catch (error) {
-      console.error('❌ Error clearing cart:', error);
-      return { success: false, message: error.message };
-    }
-  };
-
-  // Create order function - Updated to match working version
-  const createOrder = async (deliveryAddress) => {
-    // Format shipping address as a single string
-    const shippingAddress = `${deliveryAddress.houseNumber}, ${deliveryAddress.street}, ${deliveryAddress.city}, ${deliveryAddress.zipCode}, ${deliveryAddress.country}`;
-    
-    // Format contact info
-    const contactInfo = {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone
-    };
-
-    // Format the order payload to match your backend API structure
-    const orderPayload = {
-      shipping_address: shippingAddress,
-      items: cartItems.map(item => ({
-        product_id: item.product_id, // Use the correct product_id from cart
-        cart_item_id: item.cart_item_id,
-        product_name: item.name,
-        quantity: quantities[item.cart_item_id] || item.quantity || 1,
-        price: parseFloat(item.price)
-      })),
-      order_summary: orderSummary,
-      customer_info: contactInfo
-    };
-
-    try {
-      console.log('Creating order with payload:', orderPayload);
-      
-      const response = await axios.post(`${API_BASE_URL}/orders`, orderPayload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userInfo.token}`
-        }
-      });
-
-      console.log('Order creation response:', response.data);
-
-      if (response.data.success || response.status === 201 || response.status === 200) {
-        return response.data.order || response.data.data || response.data;
-      } else {
-        throw new Error(response.data.message || 'Failed to create order');
-      }
-    } catch (error) {
-      console.error('Error creating order:', error);
-      
-      // Enhanced error handling for different HTTP status codes
-      if (error.response) {
-        console.error('Error response:', error.response.data);
-        switch (error.response.status) {
-          case 404:
-            throw new Error('Order creation endpoint not found. Please contact support.');
-          case 401:
-            throw new Error('Authentication failed. Please login again.');
-          case 422:
-            throw new Error('Invalid order data. Please check your information.');
-          case 500:
-            throw new Error('Server error. Please try again later.');
-          default:
-            throw new Error(error.response.data?.message || 'Failed to create order');
-        }
-      }
-      throw error;
-    }
-  };
-
-  // Update stock quantities
-  const updateStockQuantities = async () => {
-    try {
-      const stockUpdateResponse = await fetch(`${API_BASE_URL}/products/update-quantity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          cartItems: cartItems.map(item => ({
-            ...item,
-            quantity: quantities[item.cart_item_id] || item.quantity || 1
-          }))
-        }),
-      });
-
-      const stockUpdateData = await stockUpdateResponse.json();
-      
-      if (!stockUpdateResponse.ok) {
-        console.error('⚠️ Stock update failed:', stockUpdateData.message);
-        return false;
-      } else {
-        console.log('✅ Stock updated successfully');
-        return true;
-      }
-    } catch (stockErr) {
-      console.error('⚠️ Stock update failed:', stockErr);
-      return false;
-    }
-  };
-
-  // Handle Stripe payment - UPDATED TO MATCH PHP BACKEND
+  // Handle Stripe payment - Simplified version
   const handleStripePayment = async () => {
     if (!validateForm()) {
       console.log('Form validation failed');
@@ -273,7 +125,10 @@ const CheckoutPage = () => {
         throw new Error('Some cart items are missing required information');
       }
 
-      // Create Stripe checkout session payload to match PHP backend expectations
+      console.log('🚀 Processing Stripe payment...');
+      console.log('Final total including shipping:', finalTotal);
+
+      // Create Stripe checkout session
       const stripePayload = {
         items: cartItems.map(item => {
           const quantity = quantities[item.cart_item_id] || item.quantity || 1;
@@ -283,16 +138,17 @@ const CheckoutPage = () => {
           return {
             id: item.cart_item_id,
             name: item.name,
-            totalAmount: totalAmount, // This matches what PHP backend expects
+            totalAmount: totalAmount,
             quantity: quantity
           };
         }),
-        // Add success and cancel URLs that match your routes
+        shippingCost: shippingCost,
+        finalTotal: finalTotal,
         successUrl: `${window.location.origin}/payment-success`,
         cancelUrl: `${window.location.origin}/payment-failed`
       };
 
-      console.log('Stripe payload for PHP backend:', stripePayload);
+      console.log('Stripe payload with shipping cost:', stripePayload);
 
       // Call the PHP Stripe checkout endpoint
       const response = await axios.post(`${API_BASE_URL}/stripe/checkout`, stripePayload, {
@@ -321,21 +177,29 @@ const CheckoutPage = () => {
         throw new Error('Failed to load Stripe');
       }
       
-      // Store order data in sessionStorage for success/failure handling
+      // Store complete order data in sessionStorage for success page processing
       sessionStorage.setItem('pendingOrderData', JSON.stringify({
         cartItems,
         quantities,
         deliveryAddress,
         userId: userInfo.userId,
         totalAmount: finalTotal,
-        shouldClearCart: true,
         token: userInfo.token,
         orderSummary: {
           ...orderSummary,
           shipping: shippingCost,
           finalTotal: finalTotal
-        }
+        },
+        customerInfo: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        },
+        paymentMethod: 'card',
+        sessionId: response.data.id
       }));
+
+      console.log('Order data stored in sessionStorage for processing after payment');
 
       // Redirect to Stripe checkout
       const { error } = await stripe.redirectToCheckout({
@@ -375,7 +239,7 @@ const CheckoutPage = () => {
     }
   };
 
-  // Handle Cash on Delivery - UPDATED WITH CART CLEARING
+  // Handle Cash on Delivery - Simplified version
   const handleCODPayment = async () => {
     if (!validateForm()) {
       console.log('Form validation failed');
@@ -386,43 +250,33 @@ const CheckoutPage = () => {
 
     try {
       const deliveryAddress = buildDeliveryAddress();
+      const shippingCost = calculateShipping();
+      const finalTotal = (orderSummary.total || 0) + shippingCost;
       
       console.log('🚀 Processing COD order...');
-      
-      // Create order
-      const order = await createOrder(deliveryAddress);
-      console.log('📋 COD Order creation result:', order);
 
-      if (!order) {
-        throw new Error('Order creation returned empty result');
-      }
-
-      // Update stock
-      console.log('📦 Updating stock quantities...');
-      const stockUpdateSuccess = await updateStockQuantities();
-
-      if (!stockUpdateSuccess) {
-        console.warn('⚠️ Stock update failed after order creation');
-      }
-
-      // Clear cart after successful order and stock update
-      console.log('🧹 Clearing cart after successful COD order...');
-      const cartClearResult = await clearCart();
-
-      // Navigate to success page
+      // Navigate to success page with all necessary data for processing
       navigate('/payment-success', {
         state: {
           paymentIntent: { id: 'cod_payment', status: 'succeeded' },
-          amount: (orderSummary.total || 0) + calculateShipping(),
+          amount: finalTotal,
           userId: userInfo.userId,
           cartItems,
-          order,
-          orderId: order?.orderId || order?._id,
-          stockUpdateSuccess,
+          quantities,
           deliveryAddress,
+          orderSummary: {
+            ...orderSummary,
+            shipping: shippingCost,
+            finalTotal: finalTotal
+          },
+          customerInfo: {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone
+          },
           paymentMethod: 'cod',
-          cartCleared: cartClearResult.success,
-          cartClearMessage: cartClearResult.message
+          token: userInfo.token,
+          totalAmount: finalTotal
         }
       });
 
