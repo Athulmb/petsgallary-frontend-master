@@ -171,6 +171,12 @@ const cartSlice = createSlice({
         product_id: apiItem.product_id,
       }));
     },
+    // New action to handle logout
+    handleLogout: (state) => {
+      state.items = [];
+      state.loading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -240,7 +246,8 @@ export const {
   removeItem, 
   updateQuantity, 
   clearCart, 
-  setCartItems 
+  setCartItems,
+  handleLogout 
 } = cartSlice.actions;
 
 export default cartSlice.reducer;
