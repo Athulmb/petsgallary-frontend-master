@@ -54,10 +54,10 @@ const ProductDetails = () => {
   const [addedToCart, setAddedToCart] = useState(false);
 
   useEffect(() => {
-    console.log("Fetching product with ID:", id); // ✅ Log product ID
+    console.log("Fetching product with ID:", id);
     api.get(`/get-product-details/${id}`)
       .then((res) => {
-        console.log("Product fetched successfully:", res.data.product); // ✅ Log product
+        console.log("Product fetched successfully:", res.data.product);
         setProduct(res.data.product);
         setLoading(false);
       })
@@ -66,6 +66,35 @@ const ProductDetails = () => {
         setLoading(false);
       });
   }, [id]);
+
+  // Function to check if product already exists in cart
+  const checkExistingCartItem = async (productId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const userId = localStorage.getItem('userId');
+      
+      if (!token || !userId) {
+        return null;
+      }
+
+      const response = await api.get("/cart/get", {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      // Find existing cart item for this product and user
+      const existingItem = response.data.items.find(item => 
+        String(item.user_id) === String(userId) && 
+        String(item.product_id) === String(productId)
+      );
+
+      return existingItem || null;
+    } catch (error) {
+      console.error("Error checking existing cart item:", error);
+      return null;
+    }
+  };
 
   const addProduct = async () => {
     // Validation before sending request
@@ -79,49 +108,88 @@ const ProductDetails = () => {
       return;
     }
   
-    // Correct payload format based on the API error
-    const payload = {
-      product_id: parseInt(product.id), // Direct field, not in items array
-      quantity: parseInt(quantity),     // Direct field, not in items array
-    };
-  
     try {
       // Get token from localStorage
       const token = localStorage.getItem('token');
       
       if (!token) {
         console.error("No authentication token found");
-        // You might want to redirect to login or show an error message
         return;
       }
-  
-      console.log("Sending payload:", payload); // Debug log
-  
-      const response = await api.post("/cart/add", payload, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      });
-  
-      console.log("Product added to cart successfully:", response.data);
-  
-      dispatch(
-        addItem({
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          image: product.images?.[0]?.image_url || null,
-          description: product.description,
-          about_product: product.about_product,
-          benefits: product.benefits,
-          size: selectedPackage,
-          quantity: quantity,
-        })
-      );
-  
+
+      // Check if product already exists in cart
+      const existingCartItem = await checkExistingCartItem(product.id);
+      
+      if (existingCartItem) {
+        // Product exists, update quantity instead of adding new item
+        const newQuantity = existingCartItem.quantity + quantity;
+        
+        console.log(`Product already exists in cart. Updating quantity from ${existingCartItem.quantity} to ${newQuantity}`);
+        
+        const updateResponse = await api.put(`/cart/update/${existingCartItem.id}`, {
+          product_id: parseInt(product.id),
+          quantity: newQuantity
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        console.log("Cart item updated successfully:", updateResponse.data);
+
+        // Update Redux store with new quantity
+        dispatch(
+          addItem({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.images?.[0]?.image_url || null,
+            description: product.description,
+            about_product: product.about_product,
+            benefits: product.benefits,
+            size: selectedPackage,
+            quantity: quantity, // This will be added to existing quantity in Redux
+          })
+        );
+
+      } else {
+        // Product doesn't exist, add new item
+        const payload = {
+          product_id: parseInt(product.id),
+          quantity: parseInt(quantity),
+        };
+
+        console.log("Adding new product to cart. Payload:", payload);
+
+        const response = await api.post("/cart/add", payload, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        console.log("Product added to cart successfully:", response.data);
+
+        // Add to Redux store
+        dispatch(
+          addItem({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.images?.[0]?.image_url || null,
+            description: product.description,
+            about_product: product.about_product,
+            benefits: product.benefits,
+            size: selectedPackage,
+            quantity: quantity,
+          })
+        );
+      }
+
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
+      
     } catch (error) {
       console.error("Failed to sync cart:", error);
       
@@ -134,7 +202,6 @@ const ProductDetails = () => {
         // Handle specific error cases
         if (error.response.status === 422) {
           console.error("Validation errors:", error.response.data);
-          // Show validation errors to user
           if (error.response.data.message) {
             alert(`Validation Error: ${error.response.data.message}`);
           }
@@ -143,9 +210,8 @@ const ProductDetails = () => {
           }
         } else if (error.response.status === 401) {
           console.error("Authentication failed - token may be expired");
-          // Redirect to login page
           localStorage.removeItem('token');
-          // window.location.href = '/login';
+          localStorage.removeItem('userId');
         }
       } else {
         console.error("Network or other error:", error.message);

@@ -1,6 +1,8 @@
 "use client";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
+import { useDispatch } from "react-redux"; // Add Redux dispatch
+import { removeItem, updateQuantity } from "../utils/cartSlice"; // Import Redux actions
 import { X } from "lucide-react";
 import { api } from "../utils/api";
 
@@ -11,6 +13,7 @@ export default function ShoppingCart() {
   const [updating, setUpdating] = useState({});
   const [error, setError] = useState(null);
 
+  const dispatch = useDispatch(); // Initialize Redux dispatch
   const userId = localStorage.getItem("userId");
   const token = localStorage.getItem("token");
 
@@ -64,14 +67,19 @@ export default function ShoppingCart() {
             
             console.log(`Product details for ID ${item.product_id}:`, res.data); // Debug log
             
+            // Extract the first image URL from the product images array
+            const productImage = res.data.product.images && res.data.product.images.length > 0 
+              ? res.data.product.images[0].image_url 
+              : null;
+            
             return {
               ...item,
               ...res.data.product,
               // Ensure we maintain the cart item ID and product ID separately
               cart_item_id: item.id,
               product_id: item.product_id,
-              // Fix image URL handling - use the same logic as ProductCard
-              image_url: res.data.product.images?.[0]?.image_url || res.data.product.image_url || "/images/placeholder.png"
+              // Fix the image field specifically
+              image: productImage
             };
           } catch (productError) {
             console.error(`Error fetching product details for product_id ${item.product_id}:`, productError);
@@ -81,7 +89,7 @@ export default function ShoppingCart() {
               cart_item_id: item.id,
               name: `Product ${item.product_id} (Error loading details)`,
               price: 0,
-              image_url: "/images/placeholder.png"
+              image: "/placeholder.svg"
             };
           }
         })
@@ -135,7 +143,7 @@ export default function ShoppingCart() {
 
     console.log(`Updating quantity for cart item ${cartItemId}, product ${cartItem.product_id}: ${currentQty} -> ${newQty}`); // Debug log
     
-    // Optimistic update
+    // Optimistic update for local state
     setQuantities((prev) => ({ ...prev, [cartItemId]: newQty }));
     setUpdating((prev) => ({ ...prev, [cartItemId]: true }));
     setError(null);
@@ -152,6 +160,12 @@ export default function ShoppingCart() {
       });
 
       console.log("Update response:", response.data); // Debug log
+
+      // Update Redux store after successful API call
+      dispatch(updateQuantity({
+        id: cartItem.product_id, // Use product_id for consistency with Redux store
+        quantity: newQty
+      }));
 
     } catch (err) {
       console.error("Error updating cart item:", err);
@@ -172,13 +186,21 @@ export default function ShoppingCart() {
       return;
     }
 
+    // Find the cart item to get product details for Redux
+    const cartItemToRemove = cartItems.find(item => item.cart_item_id === cartItemId);
+    if (!cartItemToRemove) {
+      console.error("Cart item not found:", cartItemId);
+      setError("Cart item not found");
+      return;
+    }
+
     // Store original state for potential revert
     const originalItems = [...cartItems];
     const originalQuantities = { ...quantities };
     
-    console.log(`Removing cart item ${cartItemId}`); // Debug log
+    console.log(`Removing cart item ${cartItemId}, product ${cartItemToRemove.product_id}`); // Debug log
 
-    // Optimistic update
+    // Optimistic update for local state
     setCartItems(prev => prev.filter(item => item.cart_item_id !== cartItemId));
     const updated = { ...quantities };
     delete updated[cartItemId];
@@ -193,6 +215,11 @@ export default function ShoppingCart() {
       });
 
       console.log("Delete response:", response.data); // Debug log
+
+      // Update Redux store after successful API call
+      dispatch(removeItem({
+        id: cartItemToRemove.product_id // Use product_id for consistency with Redux store
+      }));
 
     } catch (err) {
       console.error("Error removing cart item:", err);
@@ -270,11 +297,12 @@ export default function ShoppingCart() {
                   </button>
                   <div className="flex gap-4">
                     <img 
-                      src={product.image_url || "/images/placeholder.png"} 
+                      src={product.image || "/placeholder.svg"} 
                       alt={product.name || "Product"} 
                       className="h-20 w-20 object-cover rounded border" 
                       onError={(e) => {
-                        e.target.src = "/images/placeholder.png";
+                        console.log(`Image failed to load: ${product.image}, falling back to placeholder`);
+                        e.target.src = "/placeholder.svg";
                       }}
                     />
                     <div className="flex flex-col justify-between flex-1">
@@ -287,6 +315,10 @@ export default function ShoppingCart() {
                         </span>
                         <p className="text-xs text-gray-500 mt-1">
                           Product ID: {product.product_id} | Cart ID: {product.cart_item_id}
+                        </p>
+                        {/* Debug info for image URL */}
+                        <p className="text-xs text-blue-500 mt-1">
+                          Image: {product.image ? "✓" : "✗"} {product.image}
                         </p>
                       </div>
                       

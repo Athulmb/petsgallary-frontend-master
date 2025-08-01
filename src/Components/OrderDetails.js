@@ -283,10 +283,7 @@ const OrderDetailsModal = ({ isOpen, onClose, orderId }) => {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Order Summary</h3>
                   <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>{orderDetails.currency} {orderDetails.subtotal.toFixed(2)}</span>
-                    </div>
+                   
                     {orderDetails.shippingCost > 0 && (
                       <div className="flex justify-between">
                         <span>Shipping:</span>
