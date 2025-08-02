@@ -29,7 +29,7 @@ export const BookingPage = () => {
         const authToken = localStorage.getItem('authToken');
         const token = localStorage.getItem('token');
         const finalToken = authToken || token;
-        
+
         // Combine grooming type with message for backend
         let combinedMessage = '';
         if (formData.groomingType) {
@@ -40,7 +40,7 @@ export const BookingPage = () => {
         } else if (formData.message.trim()) {
             combinedMessage = formData.message.trim();
         }
-        
+
         const apiData = {
             name: formData.name,
             email: formData.email,
@@ -95,7 +95,7 @@ export const BookingPage = () => {
                 const responseData = await response.json();
                 console.log('✅ SUCCESS - Response Data:', responseData);
                 setSubmitStatus('success');
-                
+
                 // Reset form on success
                 setFormData({
                     name: '',
@@ -109,7 +109,7 @@ export const BookingPage = () => {
             } else {
                 let errorData;
                 const contentType = response.headers.get('content-type');
-                
+
                 if (contentType && contentType.includes('application/json')) {
                     errorData = await response.json();
                     console.log('❌ ERROR - JSON Response:', errorData);
@@ -117,7 +117,7 @@ export const BookingPage = () => {
                     errorData = await response.text();
                     console.log('❌ ERROR - Text Response:', errorData);
                 }
-                
+
                 console.log('❌ API call failed with status:', response.status);
                 setSubmitStatus('error');
             }
@@ -160,7 +160,7 @@ export const BookingPage = () => {
             {/* Main Content */}
             <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                 <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-                    
+
                     {/* Booking Form */}
                     <div className="order-2 lg:order-1">
                         <div className="rounded-3xl bg-white p-8 shadow-2xl ring-1 ring-gray-200 sm:p-10">
@@ -269,12 +269,11 @@ export const BookingPage = () => {
                                     </label>
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         {/* Basic Groom Option */}
-                                        <div 
-                                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${
-                                                formData.groomingType === 'Basic Groom' 
-                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' 
+                                        <div
+                                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${formData.groomingType === 'Basic Groom'
+                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
                                                     : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
-                                            }`}
+                                                }`}
                                             onClick={() => setFormData(prev => ({ ...prev, groomingType: 'Basic Groom' }))}
                                         >
                                             <div className="flex items-center">
@@ -304,12 +303,11 @@ export const BookingPage = () => {
                                         </div>
 
                                         {/* Full Groom Option */}
-                                        <div 
-                                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${
-                                                formData.groomingType === 'Full Groom' 
-                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' 
+                                        <div
+                                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${formData.groomingType === 'Full Groom'
+                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
                                                     : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
-                                            }`}
+                                                }`}
                                             onClick={() => setFormData(prev => ({ ...prev, groomingType: 'Full Groom' }))}
                                         >
                                             <div className="flex items-center">
@@ -363,11 +361,10 @@ export const BookingPage = () => {
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className={`w-full rounded-2xl px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-200 ${
-                                        isSubmitting
+                                    className={`w-full rounded-2xl px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-200 ${isSubmitting
                                             ? 'bg-gray-400 cursor-not-allowed'
                                             : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:shadow-xl transform hover:-translate-y-1'
-                                    }`}
+                                        }`}
                                 >
                                     {isSubmitting ? (
                                         <div className="flex items-center justify-center">
@@ -387,7 +384,7 @@ export const BookingPage = () => {
 
                     {/* Contact Information & Features */}
                     <div className="order-1 lg:order-2 space-y-6">
-                        
+
                         {/* Contact Cards */}
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
                             <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-200 hover:shadow-xl transition-shadow duration-300">
@@ -421,7 +418,18 @@ export const BookingPage = () => {
                                     </div>
                                     <div className="ml-4">
                                         <h3 className="text-lg font-semibold text-gray-900">Visit Us</h3>
-                                        <p className="text-purple-600 font-medium">Al Jaddaf, Dubai, UAE</p>
+                                        <div className="text-center">
+  <p className="text-purple-600 font-medium">
+    Al Wasl Sports Club Stadium, Building Shop #33
+  </p>
+  <p className="text-purple-600 font-medium">
+    Nouras Street, Al Jaddaf
+  </p>
+  <p className="text-purple-600 font-medium">
+    Dubai
+  </p>
+</div>
+                                    
                                     </div>
                                 </div>
                             </div>

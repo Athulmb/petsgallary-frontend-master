@@ -175,7 +175,9 @@ export const ContactPage = () => {
                     <div className="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center text-center h-auto lg:h-1/3">
                         <span className="text-2xl">📍</span>
                         <h3 className="font-semibold mt-2">Address</h3>
-                        <p className="text-gray-600">Al Jaddaf - Dubai - United Arab Emirates</p>
+                        <p className="text-gray-600">Al wasl sports club stadium building shop #33
+Nouras street 
+Al Jaddaf Dubai</p>
                     </div>
                 </div>
             </div>
