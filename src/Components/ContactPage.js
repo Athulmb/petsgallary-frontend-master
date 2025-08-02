@@ -5,7 +5,6 @@ export const ContactPage = () => {
         name: '',
         email: '',
         phone: '',
-        service: 'Grooming',
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,65 +18,31 @@ export const ContactPage = () => {
         }));
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
         setSubmitStatus(null);
 
-        // Enhanced token retrieval with better logging
-        const authToken = localStorage.getItem('authToken');
-        const token = localStorage.getItem('token');
-        const finalToken = authToken || token;
-        
-        // Comprehensive logging
-        console.log('=== CONTACT FORM SUBMISSION START ===');
-        console.log('Form Data being sent:', {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            service: formData.service,
-            message: formData.message
-        });
-        console.log('Token Status:');
-        console.log('- authToken from localStorage:', authToken ? 'Found' : 'Not found');
-        console.log('- token from localStorage:', token ? 'Found' : 'Not found');
-        console.log('- Final token being used:', finalToken ? 'Token available' : 'No token available');
-        console.log('- Token preview (first 20 chars):', finalToken ? finalToken.substring(0, 20) + '...' : 'N/A');
+        // Validate form data
+        if (!formData.name || !formData.email || !formData.phone || !formData.message) {
+            setSubmitStatus('error');
+            setIsSubmitting(false);
+            return;
+        }
 
         try {
-            const headers = {
-                'Content-Type': 'application/json',
-            };
+            // Create email body content with proper line breaks for mailto
+            const emailBody = `New Contact Form Submission:%0D%0A%0D%0AName: ${formData.name}%0D%0AEmail: ${formData.email}%0D%0APhone: ${formData.phone}%0D%0A%0D%0AMessage:%0D%0A${formData.message}%0D%0A%0D%0A---%0D%0ASent from Pets Gallery Dubai Contact Form`;
 
-            // Add Authorization header if token exists
-            if (finalToken) {
-                headers['Authorization'] = `Bearer ${finalToken}`;
-                console.log('✅ Authorization header added');
-            } else {
-                console.log('⚠️ No token found - proceeding without authorization');
-            }
+            // Create mailto link
+            const subject = encodeURIComponent('New Contact Form Submission - Pets Gallery Dubai');
+            const mailtoLink = `mailto:petsgallery033@gmail.com?subject=${subject}&body=${emailBody}`;
 
-            console.log('Request Configuration:');
-            console.log('- URL:', 'https://backend.petsgallerydubai.com/api/contact');
-            console.log('- Method:', 'POST');
-            console.log('- Headers:', headers);
-            console.log('- Body:', JSON.stringify(formData, null, 2));
+            // Open email client
+            window.open(mailtoLink, '_self');
 
-            const response = await fetch('https://backend.petsgallerydubai.com/api/bookings', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(formData)
-            });
-
-            console.log('=== API RESPONSE ===');
-            console.log('Response Status:', response.status);
-            console.log('Response Status Text:', response.statusText);
-            console.log('Response OK:', response.ok);
-            console.log('Response Headers:', Object.fromEntries(response.headers.entries()));
-
-            if (response.ok) {
-                const responseData = await response.json();
-                console.log('✅ SUCCESS - Response Data:', responseData);
+            // Set success status
+            setTimeout(() => {
                 setSubmitStatus('success');
                 
                 // Reset form on success
@@ -85,58 +50,20 @@ export const ContactPage = () => {
                     name: '',
                     email: '',
                     phone: '',
-                    service: 'Grooming',
                     message: ''
                 });
-                console.log('✅ Form reset successfully');
-            } else {
-                let errorData;
-                const contentType = response.headers.get('content-type');
-                
-                if (contentType && contentType.includes('application/json')) {
-                    errorData = await response.json();
-                    console.log('❌ ERROR - JSON Response:', errorData);
-                } else {
-                    errorData = await response.text();
-                    console.log('❌ ERROR - Text Response:', errorData);
-                }
-                
-                console.log('❌ API call failed with status:', response.status);
-                setSubmitStatus('error');
-            }
-        } catch (error) {
-            console.log('❌ NETWORK/FETCH ERROR:');
-            console.log('Error name:', error.name);
-            console.log('Error message:', error.message);
-            console.log('Error stack:', error.stack);
-            setSubmitStatus('error');
-        } finally {
-            setIsSubmitting(false);
-            console.log('=== CONTACT FORM SUBMISSION END ===');
-        }
-    };
+                setIsSubmitting(false);
+            }, 1000);
 
-    // Demo function to test localStorage (for development)
-    const handleTestLocalStorage = () => {
-        console.log('=== LOCALSTORAGE TEST ===');
-        console.log('All localStorage items:');
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            const value = localStorage.getItem(key);
-            console.log(`${key}:`, value?.substring(0, 50) + (value?.length > 50 ? '...' : ''));
-        }
-        
-        // Set a test token if none exists
-        if (!localStorage.getItem('authToken') && !localStorage.getItem('token')) {
-            localStorage.setItem('authToken', 'test-token-123456789');
-            console.log('✅ Test token added to localStorage');
+        } catch (error) {
+            console.log('Error:', error);
+            setSubmitStatus('error');
+            setIsSubmitting(false);
         }
     };
 
     return (
         <div className="bg-gray-50 min-h-screen py-10 px-4 sm:px-20">
-            
-
             <div className="max-w-8xl w-full flex flex-col lg:flex-row gap-6">
                 {/* Left Section - Text */}
                 <div className="lg:w-2/5 bg-white p-8 rounded-xl shadow-lg flex flex-col h-auto lg:h-[500px] mb-6 lg:mb-0">
@@ -165,81 +92,71 @@ export const ContactPage = () => {
                 </div>
 
                 {/* Middle Section - Contact Form */}
-                <div className="lg:w-2/5 bg-white p-8 rounded-xl shadow-lg h-auto lg:h-[500px] mb-6 lg:mb-0">
-                    <h2 className="text-lg font-semibold">Contact Form</h2>
-                    
-                    {/* Status Messages */}
-                    {submitStatus === 'success' && (
-                        <div className="mt-2 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-                            Thank you! Your message has been sent successfully.
-                        </div>
-                    )}
-                    {submitStatus === 'error' && (
-                        <div className="mt-2 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                            Sorry, there was an error sending your message. Please try again.
-                        </div>
-                    )}
+                <div className="lg:w-2/5 bg-white p-4 sm:p-6 lg:p-8 rounded-xl shadow-lg mb-6 lg:mb-0">
+                    <div className="flex flex-col h-full min-h-[400px] lg:min-h-[550px]">
+                        <h2 className="text-lg font-semibold mb-4">Contact Form</h2>
+                        
+                        {/* Status Messages */}
+                        {submitStatus === 'success' && (
+                            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
+                                Thank you! Your email client should open with the message ready to send.
+                            </div>
+                        )}
+                        {submitStatus === 'error' && (
+                            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+                                Please fill in all fields or try again.
+                            </div>
+                        )}
 
-                    <div className="mt-4 space-y-4 flex flex-col h-auto lg:h-[90%]">
-                        <input 
-                            type="text" 
-                            name="name"
-                            placeholder="Name" 
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
-                            required
-                        />
-                        <input 
-                            type="email" 
-                            name="email"
-                            placeholder="Email" 
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
-                            required
-                        />
-                        <input 
-                            type="tel" 
-                            name="phone"
-                            placeholder="Phone" 
-                            value={formData.phone}
-                            onChange={handleInputChange}
-                            className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
-                            required
-                        />
-                        <select 
-                            name="service"
-                            value={formData.service}
-                            onChange={handleInputChange}
-                            className="w-full p-3 border border-gray-500 rounded-2xl text-gray-700"
-                            required
-                        >
-                            <option value="Grooming">Grooming</option>
-                            <option value="Adoption">Adoption</option>
-                            <option value="Pets Passport">Pets Passport</option>
-                            <option value="Foods">Foods</option>
-                        </select>
-                        <textarea 
-                            name="message"
-                            placeholder="Message" 
-                            value={formData.message}
-                            onChange={handleInputChange}
-                            className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500 min-h-32 lg:flex-grow"
-                            required
-                        ></textarea>
-                        <button 
-                            type="submit"
-                            onClick={handleSubmit}
-                            disabled={isSubmitting}
-                            className={`w-full py-3 rounded-full transition-colors font-semibold ${
-                                isSubmitting 
-                                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                                    : 'bg-orange-500 text-white hover:bg-orange-600'
-                            }`}
-                        >
-                            {isSubmitting ? 'Sending...' : 'Book Now'}
-                        </button>
+                        <div className="flex flex-col flex-1 space-y-4">
+                            <input 
+                                type="text" 
+                                name="name"
+                                placeholder="Name" 
+                                value={formData.name}
+                                onChange={handleInputChange}
+                                className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
+                                required
+                            />
+                            <input 
+                                type="email" 
+                                name="email"
+                                placeholder="Email" 
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
+                                required
+                            />
+                            <input 
+                                type="tel" 
+                                name="phone"
+                                placeholder="Phone" 
+                                value={formData.phone}
+                                onChange={handleInputChange}
+                                className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500" 
+                                required
+                            />
+                            <textarea 
+                                name="message"
+                                placeholder="Message" 
+                                value={formData.message}
+                                onChange={handleInputChange}
+                                className="w-full p-3 border border-gray-500 rounded-2xl placeholder-gray-500 flex-1 min-h-[120px] resize-none"
+                                required
+                            ></textarea>
+                            <button 
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                className={`w-full py-3 rounded-full transition-colors font-semibold ${
+                                    isSubmitting 
+                                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                        : 'bg-orange-500 text-white hover:bg-orange-600'
+                                }`}
+                            >
+                                {isSubmitting ? 'Opening Email...' : 'Contact Now'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

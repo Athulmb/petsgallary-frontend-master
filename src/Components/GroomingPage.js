@@ -96,7 +96,7 @@ const GroomingPage = () => {
   const navigate = useNavigate();
 
   const handleBookNow = () => {
-    navigate('/contact');
+    navigate('/booking');
   };
 
   return (

@@ -24,6 +24,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import PaymentSuccess from "./Components/PaymentSuccess";
 import PaymentFailed from "./Components/PaymentFail"; 
+import BookingPage from "./Components/Booking";
 
 const stripePromise = loadStripe('pk_live_51Ml76JBXMMX4ZG36EY7bQJ20P6HTWAsRC9s72Bo71i1BauD0kk2GUHgL8cu4ZLvmmWNrETBihxMmQ2xFjdEOvc1C00TBkALAoI');
 
@@ -53,6 +54,8 @@ function App() {
         <Route path="/user/register" element={<RegisterForm/>} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/booking" element={<BookingPage/>} />
+
         
         {/* FIXED: Updated route paths to match CheckoutPage navigation */}
         <Route path="/payment-success" element={<PaymentSuccess/>} />
