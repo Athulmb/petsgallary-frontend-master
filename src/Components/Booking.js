@@ -271,8 +271,8 @@ export const BookingPage = () => {
                                         {/* Basic Groom Option */}
                                         <div
                                             className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${formData.groomingType === 'Basic Groom'
-                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
-                                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
+                                                ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                                                : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
                                                 }`}
                                             onClick={() => setFormData(prev => ({ ...prev, groomingType: 'Basic Groom' }))}
                                         >
@@ -305,8 +305,8 @@ export const BookingPage = () => {
                                         {/* Full Groom Option */}
                                         <div
                                             className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${formData.groomingType === 'Full Groom'
-                                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
-                                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
+                                                ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                                                : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-25'
                                                 }`}
                                             onClick={() => setFormData(prev => ({ ...prev, groomingType: 'Full Groom' }))}
                                         >
@@ -338,7 +338,6 @@ export const BookingPage = () => {
                                                 <p>✓ Professional styling & trimming</p>
                                                 <p>✓ Teeth cleaning</p>
                                                 <p>✓ Perfume spray</p>
-                                                <p>✓ Bow or bandana</p>
                                             </div>
                                         </div>
                                     </div>
@@ -362,8 +361,8 @@ export const BookingPage = () => {
                                     type="submit"
                                     disabled={isSubmitting}
                                     className={`w-full rounded-2xl px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-200 ${isSubmitting
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:shadow-xl transform hover:-translate-y-1'
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:shadow-xl transform hover:-translate-y-1'
                                         }`}
                                 >
                                     {isSubmitting ? (
@@ -419,17 +418,17 @@ export const BookingPage = () => {
                                     <div className="ml-4">
                                         <h3 className="text-lg font-semibold text-gray-900">Visit Us</h3>
                                         <div className="text-center">
-  <p className="text-purple-600 font-medium">
-    Al Wasl Sports Club Stadium, Building Shop #33
-  </p>
-  <p className="text-purple-600 font-medium">
-    Nouras Street, Al Jaddaf
-  </p>
-  <p className="text-purple-600 font-medium">
-    Dubai
-  </p>
-</div>
-                                    
+                                            <p className="text-purple-600 font-medium">
+                                                Al Wasl Sports Club Stadium, Building Shop #33
+                                            </p>
+                                            <p className="text-purple-600 font-medium">
+                                                Nouras Street, Al Jaddaf
+                                            </p>
+                                            <p className="text-purple-600 font-medium">
+                                                Dubai
+                                            </p>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
