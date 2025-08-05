@@ -63,7 +63,6 @@ const FilterSidebar = ({
   ];
   const petCounts = [125, 111, 75, 50];
 
-  // Updated product types to use names that match your database
   const productTypes = [
     { label: "Food", value: ["Food"] },
     { label: "Accessories", value: ["cage", "cat litter box","scratcher"] }, // multiple internal values
