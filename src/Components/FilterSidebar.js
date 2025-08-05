@@ -24,6 +24,29 @@ const FilterSidebar = ({
     setSelectedPetTypes(initialSelectedPetTypes);
   }, [initialSelectedRange, initialSelectedProductType, initialSelectedPetTypes]);
 
+  // Auto-apply filters only when there's an actual change (not on initial mount)
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  useEffect(() => {
+    // Skip the first render to avoid applying filters on mount
+    if (!isInitialized) {
+      setIsInitialized(true);
+      return;
+    }
+    
+    // Check if any filters are actually selected
+    const hasFilters = selectedRange !== null || 
+                      selectedProductType.length > 0 || 
+                      selectedPetTypes.length > 0;
+    
+    onApplyFilters?.({
+      priceRange: selectedRange,
+      productTypes: selectedProductType,
+      petTypes: selectedPetTypes,
+      showAll: !hasFilters // Pass a flag to indicate if all products should be shown
+    });
+  }, [selectedRange, selectedProductType, selectedPetTypes]);
+
   const predefinedRanges = [
     { label: "Below AED 100", min: 0, max: 100 },
     { label: "AED 100 - 300", min: 100, max: 300 },
@@ -40,13 +63,14 @@ const FilterSidebar = ({
   ];
   const petCounts = [125, 111, 75, 50];
 
-  // Updated product types to use IDs that match your database
+  // Updated product types to use names that match your database
   const productTypes = [
-    { label: "Food", value: "1" },
-    { label: "Accessories", value: "2" }, // Adjust these IDs based on your actual database
-    { label: "Cloth", value: "3" },
-    { label: "Toys", value: "4" },
+    { label: "Food", value: ["Food"] },
+    { label: "Accessories", value: ["cage", "cat litter box","scratcher"] }, // multiple internal values
+    { label: "Collar", value: ["collar"] },
+    { label: "Toys", value: ["Toy"] },
   ];
+  
 
   const handlePetTypeToggle = (value) => {
     setSelectedPetTypes((prev) =>
@@ -64,23 +88,7 @@ const FilterSidebar = ({
     setSelectedRange(null);
     setSelectedProductType([]);
     setSelectedPetTypes([]);
-    onApplyFilters?.({
-      priceRange: null,
-      productTypes: [],
-      petTypes: [],
-    });
-  };
-
-  const handleApply = () => {
-    onApplyFilters?.({
-      priceRange: selectedRange,
-      productTypes: selectedProductType,
-      petTypes: selectedPetTypes,
-    });
-    // Close sidebar on mobile after applying filters
-    if (window.innerWidth < 1024) {
-      onClose?.();
-    }
+    // The useEffect will automatically trigger onApplyFilters with empty values
   };
 
   return (
@@ -159,12 +167,6 @@ const FilterSidebar = ({
         ))}
       </div>
 
-      <button
-        className="w-full bg-orange-400 text-white rounded-full py-2 mb-2 text-sm hover:bg-orange-500 transition-colors"
-        onClick={handleApply}
-      >
-        Apply Filter
-      </button>
       <button
         className="w-full border border-gray-300 rounded-full py-2 text-sm hover:bg-gray-50 transition-colors"
         onClick={handleReset}
