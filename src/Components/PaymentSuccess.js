@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux'; // Add Redux dispatch
+import { removeItem, clearCart } from '../utils/cartSlice'; // Import Redux actions
 import { CheckCircle, Package, Truck, Calendar, Phone, Mail, ArrowLeft, Share2, AlertCircle } from 'lucide-react';
 import { useProfileNavigation, navigateToOrders} from '../utils/profileNavigation';
 import axios from 'axios';
@@ -9,6 +11,7 @@ import { api } from '../utils/api';
 const PaymentSuccessPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch(); // Initialize Redux dispatch
   const { safeGoToOrders, goToGeneral } = useProfileNavigation();
   const [orderData, setOrderData] = useState(null);
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
@@ -60,7 +63,7 @@ const PaymentSuccessPage = () => {
     }
   };
 
-  // Clear cart items
+  // Clear cart items from both API and Redux store
   const clearCart = async (cartItems, token) => {
     if (!token || !cartItems.length) {
       console.log('No token or cart items to clear');
@@ -79,6 +82,13 @@ const PaymentSuccessPage = () => {
           });
           
           console.log(`✅ Deleted cart item ${item.cart_item_id}:`, response.data);
+          
+          // Remove item from Redux store after successful API call
+          // Use product_id as id since that's how your Redux store maps it
+          dispatch(removeItem({
+            id: item.product_id // This matches the 'id' field in your Redux store structure
+          }));
+          
           return { success: true, cartItemId: item.cart_item_id };
         } catch (error) {
           console.error(`❌ Failed to delete cart item ${item.cart_item_id}:`, error);
@@ -88,6 +98,70 @@ const PaymentSuccessPage = () => {
 
       const results = await Promise.all(deletePromises);
       
+      const failed = results.filter(result => !result.success);
+      
+      if (failed.length === 0) {
+        console.log('✅ All cart items cleared successfully');
+        
+        // Clear entire Redux cart store if all items were successfully cleared
+        dispatch(clearCart());
+        
+        return { success: true, message: 'Cart cleared successfully' };
+      } else {
+        console.warn(`⚠️ Failed to clear ${failed.length} cart items:`, failed);
+        
+        // If some items were successfully cleared but not all, we consider this partial success
+        // The Redux store was already updated for successful deletions
+        return { 
+          success: false, 
+          message: `Failed to clear ${failed.length} items`, 
+          failedItems: failed 
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ Error clearing cart:', error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Alternative approach: Clear Redux store immediately, handle API failures separately
+  const clearCartOptimistic = async (cartItems, token) => {
+    if (!token || !cartItems.length) {
+      console.log('No token or cart items to clear');
+      return { success: true, message: 'No items to clear' };
+    }
+
+    try {
+      console.log('🧹 Clearing cart items (optimistic)...');
+      
+      // Clear Redux store immediately (optimistic update)
+      dispatch(clearCart());
+      
+      const deletePromises = cartItems.map(async (item) => {
+        try {
+          const response = await api.delete(`/cart/delete/${item.cart_item_id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          console.log(`✅ Deleted cart item ${item.cart_item_id}:`, response.data);
+          return { success: true, cartItemId: item.cart_item_id };
+        } catch (error) {
+          console.error(`❌ Failed to delete cart item ${item.cart_item_id}:`, error);
+          
+          // Re-add item to Redux store if API call failed
+          dispatch(removeItem({
+            id: item.product_id,
+            revert: true // Custom flag if your Redux slice supports reverting
+          }));
+          
+          return { success: false, cartItemId: item.cart_item_id, error: error.message };
+        }
+      });
+
+      const results = await Promise.all(deletePromises);
       const failed = results.filter(result => !result.success);
       
       if (failed.length === 0) {
@@ -104,6 +178,8 @@ const PaymentSuccessPage = () => {
       
     } catch (error) {
       console.error('❌ Error clearing cart:', error);
+      // If there's a general error, try to restore the Redux state
+      // This would require storing the original cart items
       return { success: false, message: error.message };
     }
   };
@@ -161,15 +237,20 @@ const PaymentSuccessPage = () => {
       setProcessingSteps(prev => ({ ...prev, orderCreated: true }));
       console.log('✅ Order created successfully:', order);
 
-      // STEP 2: Clear cart
+      // STEP 2: Clear cart (both API and Redux store)
       console.log('🧹 Clearing cart...');
+      
+      // Use the regular clearCart function that updates Redux after successful API calls
       const cartClearResult = await clearCart(cartItems, token);
+      
+      // OR use the optimistic approach:
+      // const cartClearResult = await clearCartOptimistic(cartItems, token);
       
       steps.cartCleared = cartClearResult.success;
       setProcessingSteps(prev => ({ ...prev, cartCleared: cartClearResult.success }));
       
       if (cartClearResult.success) {
-        console.log('✅ Cart cleared successfully');
+        console.log('✅ Cart cleared successfully (API + Redux store)');
       } else {
         console.warn('⚠️ Cart clearing failed:', cartClearResult.message);
       }
@@ -288,7 +369,7 @@ const PaymentSuccessPage = () => {
     };
 
     initializeOrderData();
-  }, [state, navigate]);
+  }, [state, navigate, dispatch]);
 
   const handleContactSupport = () => {
     const email = 'petsgallery033@gmail.com';
@@ -352,7 +433,7 @@ const PaymentSuccessPage = () => {
                 ) : (
                   <div className="w-4 h-4 mr-2 border-2 border-gray-300 rounded-full"></div>
                 )}
-                Clearing Cart
+                Clearing Cart & Updating Store
               </div>
             </div>
           </div>
@@ -546,7 +627,7 @@ const PaymentSuccessPage = () => {
                       ) : (
                         <AlertCircle className="w-4 h-4 mr-2" />
                       )}
-                      Cart Cleanup: {orderData.processingSteps.cartCleared ? 'Success' : 'Warning'}
+                      Cart Cleanup & Store Update: {orderData.processingSteps.cartCleared ? 'Success' : 'Warning'}
                     </div>
                   </div>
                 </div>
