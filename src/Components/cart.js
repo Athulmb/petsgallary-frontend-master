@@ -49,7 +49,7 @@ export default function ShoppingCart() {
       console.log("Raw cart data:", data); // Debug log
 
       // Filter cart items for current user - ensure both are strings or numbers
-      const userCartItems = data.items.filter(item => 
+      const userCartItems = data.items.filter(item =>
         String(item.user_id) === String(userId)
       );
 
@@ -64,14 +64,14 @@ export default function ShoppingCart() {
                 Authorization: `Bearer ${token}`
               }
             });
-            
+
             console.log(`Product details for ID ${item.product_id}:`, res.data); // Debug log
-            
+
             // Extract the first image URL from the product images array
-            const productImage = res.data.product.images && res.data.product.images.length > 0 
-              ? res.data.product.images[0].image_url 
+            const productImage = res.data.product.images && res.data.product.images.length > 0
+              ? res.data.product.images[0].image_url
               : null;
-            
+
             return {
               ...item,
               ...res.data.product,
@@ -129,7 +129,7 @@ export default function ShoppingCart() {
 
     const currentQty = quantities[cartItemId] || 1;
     const newQty = Math.max(1, currentQty + delta);
-    
+
     // Don't proceed if quantity wouldn't change
     if (newQty === currentQty) return;
 
@@ -142,7 +142,7 @@ export default function ShoppingCart() {
     }
 
     console.log(`Updating quantity for cart item ${cartItemId}, product ${cartItem.product_id}: ${currentQty} -> ${newQty}`); // Debug log
-    
+
     // Optimistic update for local state
     setQuantities((prev) => ({ ...prev, [cartItemId]: newQty }));
     setUpdating((prev) => ({ ...prev, [cartItemId]: true }));
@@ -170,7 +170,7 @@ export default function ShoppingCart() {
     } catch (err) {
       console.error("Error updating cart item:", err);
       handleAuthError(err);
-      
+
       // Revert optimistic update on error
       setQuantities((prev) => ({ ...prev, [cartItemId]: currentQty }));
       setError("Failed to update quantity");
@@ -197,7 +197,7 @@ export default function ShoppingCart() {
     // Store original state for potential revert
     const originalItems = [...cartItems];
     const originalQuantities = { ...quantities };
-    
+
     console.log(`Removing cart item ${cartItemId}, product ${cartItemToRemove.product_id}`); // Debug log
 
     // Optimistic update for local state
@@ -224,7 +224,7 @@ export default function ShoppingCart() {
     } catch (err) {
       console.error("Error removing cart item:", err);
       handleAuthError(err);
-      
+
       // Revert optimistic update on error
       setCartItems(originalItems);
       setQuantities(originalQuantities);
@@ -263,7 +263,7 @@ export default function ShoppingCart() {
     <div className="min-h-screen bg-[#F5F6ED] p-4">
       <div className="mx-auto space-y-6">
         <h2 className="text-4xl font-sans">Shopping Cart</h2>
-        
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             {error}
@@ -277,8 +277,8 @@ export default function ShoppingCart() {
             ) : cartItems.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-lg mb-4">Your cart is empty.</p>
-                <Link 
-                  to="/" 
+                <Link
+                  to="/"
                   className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition-colors"
                 >
                   Continue Shopping
@@ -287,8 +287,8 @@ export default function ShoppingCart() {
             ) : (
               cartItems.map((product) => (
                 <div key={product.cart_item_id} className="relative flex flex-col bg-white rounded-lg p-4 shadow">
-                  <button 
-                    onClick={() => remove(product.cart_item_id)} 
+                  <button
+                    onClick={() => remove(product.cart_item_id)}
                     className="absolute right-2 top-2 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
                     disabled={updating[product.cart_item_id]}
                     title="Remove item"
@@ -296,10 +296,10 @@ export default function ShoppingCart() {
                     <X size={20} />
                   </button>
                   <div className="flex gap-4">
-                    <img 
-                      src={product.image || "/placeholder.svg"} 
-                      alt={product.name || "Product"} 
-                      className="h-20 w-20 object-cover rounded border" 
+                    <img
+                      src={product.image || "/placeholder.svg"}
+                      alt={product.name || "Product"}
+                      className="h-20 w-20 object-cover rounded border"
                       onError={(e) => {
                         console.log(`Image failed to load: ${product.image}, falling back to placeholder`);
                         e.target.src = "/placeholder.svg";
@@ -321,10 +321,10 @@ export default function ShoppingCart() {
                           Image: {product.image ? "✓" : "✗"} {product.image}
                         </p>
                       </div>
-                      
+
                       <div className="flex items-center gap-2 mt-2">
-                        <button 
-                          onClick={() => updateQuantityHandler(product.cart_item_id, -1)} 
+                        <button
+                          onClick={() => updateQuantityHandler(product.cart_item_id, -1)}
                           className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           disabled={updating[product.cart_item_id] || quantities[product.cart_item_id] <= 1}
                           title="Decrease quantity"
@@ -334,8 +334,8 @@ export default function ShoppingCart() {
                         <span className={`min-w-[2rem] text-center ${updating[product.cart_item_id] ? "opacity-50" : ""}`}>
                           {quantities[product.cart_item_id] || 1}
                         </span>
-                        <button 
-                          onClick={() => updateQuantityHandler(product.cart_item_id, 1)} 
+                        <button
+                          onClick={() => updateQuantityHandler(product.cart_item_id, 1)}
                           className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           disabled={updating[product.cart_item_id]}
                           title="Increase quantity"
@@ -343,14 +343,20 @@ export default function ShoppingCart() {
                           +
                         </button>
                       </div>
-                      
+
                       <div className="mt-2">
-                        <span className="text-sm text-gray-600">
-                          DH {(product.price || 0).toFixed(2)} each
+                        {/* Price per item */}
+                        <span className="text-sm text-gray-600 flex items-center gap-1">
+                          <img src="/coin.png" alt="AED" className="w-5 h-5 inline-block" />
+                          {(product.price || 0).toFixed(2)} each
                         </span>
-                        <span className="block text-base font-semibold text-black">
-                          Total: DH {((product.price || 0) * (quantities[product.cart_item_id] || 1)).toFixed(2)}
+
+                        {/* Total for item */}
+                        <span className="text-base font-semibold text-black flex items-center gap-1">
+                          <img src="/coin.png" alt="AED" className="w-5 h-5 inline-block" />
+                          {((product.price || 0) * (quantities[product.cart_item_id] || 1)).toFixed(2)}
                         </span>
+
                       </div>
                     </div>
                   </div>
@@ -366,27 +372,42 @@ export default function ShoppingCart() {
                 <span>Items ({cartItems.length})</span>
                 <span>{cartItems.reduce((sum, item) => sum + (quantities[item.cart_item_id] || 1), 0)}</span>
               </div>
+              {/* Subtotal */}
               <div className="flex justify-between text-sm border-b pb-2">
                 <span>Subtotal</span>
-                <span>DH {orderPrice.toFixed(2)}</span>
+                <span className="flex items-center gap-1">
+                  <img src="/coin.png" alt="AED" className="w-5 h-5 inline-block" />
+                  {orderPrice.toFixed(2)}
+                </span>
               </div>
+
+              {/* VAT */}
               <div className="flex justify-between text-sm border-b pb-2">
                 <span>VAT</span>
-                <span>DH {gst.toFixed(2)}</span>
+                <span className="flex items-center gap-1">
+                  <img src="/coin.png" alt="AED" className="w-5 h-5 inline-block" />
+                  {gst.toFixed(2)}
+                </span>
               </div>
+
+              {/* Total */}
               <div className="flex justify-between text-lg font-bold mt-4 pt-2 border-t">
                 <span>Total</span>
-                <span>DH {total.toFixed(2)}</span>
+                <span className="flex items-center gap-1">
+                  <img src="/coin.png" alt="AED" className="w-5 h-5 inline-block" />
+                  {total.toFixed(2)}
+                </span>
               </div>
+
               <Link
                 to="/checkout"
-                state={{ 
+                state={{
                   cartItems: cartItems.map(item => ({
                     ...item,
                     quantity: quantities[item.cart_item_id] || 1,
                     total_price: (item.price || 0) * (quantities[item.cart_item_id] || 1)
-                  })), 
-                  quantities, 
+                  })),
+                  quantities,
                   orderSummary: {
                     subtotal: orderPrice,
                     vat: gst,
@@ -399,17 +420,16 @@ export default function ShoppingCart() {
                     token: token
                   }
                 }}
-                className={`block text-center font-semibold py-3 mt-5 rounded-lg transition-colors ${
-                  cartItems.length > 0 
-                    ? "bg-orange-500 text-white hover:bg-orange-600" 
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
+                className={`block text-center font-semibold py-3 mt-5 rounded-lg transition-colors ${cartItems.length > 0
+                  ? "bg-orange-500 text-white hover:bg-orange-600"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
                 onClick={(e) => {
                   if (cartItems.length === 0) {
                     e.preventDefault();
                     return;
                   }
-                  
+
                   // Log the data being passed for debugging
                   console.log("Checkout data being passed:", {
                     cartItems: cartItems.map(item => ({

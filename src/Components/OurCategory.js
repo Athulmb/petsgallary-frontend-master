@@ -115,10 +115,18 @@ const CategorySection = () => {
           >
             <h2 className="text-2xl sm:text-3xl font-medium pl-4 sm:pl-8 md:pl-[100px] z-10">Cats</h2>
             <img
-              src="gold-bengal-cat-white-space 2.png"
-              alt="Cat"
-              className="absolute bottom-3 right-4 h-[140px] sm:h-[160px] md:h-[180px] object-contain pointer-events-none"
-            />
+  src="gold-bengal-cat-white-space 2.png"
+  alt="Cat"
+  className="absolute bottom-3 right-4 
+             h-[90px]  
+             xs:h-[100px]        
+             sm:h-[120px]         
+             md:h-[100px]  
+             lg:h-[130px]
+             xl:h-[160px]     
+             object-contain pointer-events-none"
+/>
+
           </div>
 
           {/* Bird category */}

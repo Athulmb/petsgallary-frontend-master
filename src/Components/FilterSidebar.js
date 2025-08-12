@@ -26,19 +26,19 @@ const FilterSidebar = ({
 
   // Auto-apply filters only when there's an actual change (not on initial mount)
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   useEffect(() => {
     // Skip the first render to avoid applying filters on mount
     if (!isInitialized) {
       setIsInitialized(true);
       return;
     }
-    
+
     // Check if any filters are actually selected
-    const hasFilters = selectedRange !== null || 
-                      selectedProductType.length > 0 || 
-                      selectedPetTypes.length > 0;
-    
+    const hasFilters = selectedRange !== null ||
+      selectedProductType.length > 0 ||
+      selectedPetTypes.length > 0;
+
     onApplyFilters?.({
       priceRange: selectedRange,
       productTypes: selectedProductType,
@@ -65,11 +65,11 @@ const FilterSidebar = ({
 
   const productTypes = [
     { label: "Food", value: ["Food"] },
-    { label: "Accessories", value: ["cage", "cat litter box","scratcher"] }, // multiple internal values
+    { label: "Accessories", value: ["cage", "cat litter box", "scratcher"] }, // multiple internal values
     { label: "Collar", value: ["collar"] },
     { label: "Toys", value: ["Toy"] },
   ];
-  
+
 
   const handlePetTypeToggle = (value) => {
     setSelectedPetTypes((prev) =>
@@ -77,11 +77,12 @@ const FilterSidebar = ({
     );
   };
 
-  const handleProductTypeToggle = (value) => {
+  const handleProductTypeToggle = (label) => {
     setSelectedProductType((prev) =>
-      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
+      prev.includes(label) ? prev.filter((t) => t !== label) : [...prev, label]
     );
   };
+
 
   const handleReset = () => {
     setSelectedRange(null);
@@ -125,22 +126,25 @@ const FilterSidebar = ({
       ))}
 
       {/* Product Type */}
-      <h2 className="text-lg sm:text-xl font-semibold mt-5 sm:mt-6 mb-3 sm:mb-4">Product Type</h2>
+      <h2 className="text-lg sm:text-xl font-semibold mt-5 sm:mt-6 mb-3 sm:mb-4">
+        Product Type
+      </h2>
       <div className="grid grid-cols-2 gap-2 mb-6">
-        {productTypes.map(({ label, value }) => (
+        {productTypes.map(({ label }) => (
           <button
-            key={value}
+            key={label}
             type="button"
-            onClick={() => handleProductTypeToggle(value)}
-            className={`px-2 py-1.5 rounded-full border text-xs w-full whitespace-nowrap text-ellipsis ${selectedProductType.includes(value)
-              ? "bg-orange-400 text-white border-orange-400"
-              : "text-gray-600 border-gray-300"
+            onClick={() => handleProductTypeToggle(label)}
+            className={`px-2 py-1.5 rounded-full border text-xs w-full whitespace-nowrap text-ellipsis ${selectedProductType.includes(label)
+                ? "bg-orange-400 text-white border-orange-400"
+                : "text-gray-600 border-gray-300"
               }`}
           >
             {label}
           </button>
         ))}
       </div>
+
 
       {/* Price Range */}
       <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Price</h2>
@@ -172,6 +176,14 @@ const FilterSidebar = ({
       >
         Reset
       </button>
+      {/* OK Button for Mobile */}
+      <button
+        className="lg:hidden xl:hidden mt-4 w-full bg-orange-400 text-white py-2 rounded-full"
+        onClick={onClose}
+      >
+        OK
+      </button>
+
     </aside>
   );
 };
