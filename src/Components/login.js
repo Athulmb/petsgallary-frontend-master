@@ -87,6 +87,7 @@ export default function LoginForm() {
       localStorage.setItem("userEmail", data.user?.email || data.userEmail || email);
       localStorage.setItem("isAuthenticated", "true");
 
+      console.log("User token:", data.token);
       const userData = {
         id: userId,
         name: data.user?.name || data.userName,

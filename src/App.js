@@ -25,6 +25,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import PaymentSuccess from "./Components/PaymentSuccess";
 import PaymentFailed from "./Components/PaymentFail"; 
 import BookingPage from "./Components/Booking";
+import WishlistPage from "./Components/Wishlist";
 
 const stripePromise = loadStripe('pk_live_51Ml76JBXMMX4ZG36EY7bQJ20P6HTWAsRC9s72Bo71i1BauD0kk2GUHgL8cu4ZLvmmWNrETBihxMmQ2xFjdEOvc1C00TBkALAoI');
 
@@ -55,6 +56,7 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route path="/booking" element={<BookingPage/>} />
+        <Route path="/wishlist" element={<WishlistPage/>} />
 
         
         {/* FIXED: Updated route paths to match CheckoutPage navigation */}

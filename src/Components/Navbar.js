@@ -59,6 +59,13 @@ const Navbar = () => {
       navigate("/user");
     }
   };
+  const handleHeartClick = () => {
+    if (isAuthenticated) {
+      navigate("/wishlist");
+    } else {
+      navigate("/user");
+    }
+  };
 
   // Calculate total cart items
   const totalCartItems = cartItems.reduce((total, item) => total + (item.quantity || 1), 0);
@@ -84,7 +91,7 @@ const Navbar = () => {
             <img src="/logopng1.png" alt="Logo" className="h-20 w-auto" />
           </Link>
 
-          <div className="flex items-center gap-5">
+          <div on onClick={handleHeartClick} className="flex items-center gap-5">
             <button className="flex hover:text-gray-600 transition-colors">
               <Heart size={26} />
             </button>
@@ -121,7 +128,7 @@ const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-6">
-            <button className="flex hover:text-gray-600 transition-colors">
+            <button  onClick={handleHeartClick } className="flex hover:text-gray-600 transition-colors">
               <Heart size={26} />
             </button>
 

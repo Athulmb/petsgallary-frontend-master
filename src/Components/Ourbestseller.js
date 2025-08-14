@@ -9,6 +9,8 @@ const ProductCard = ({ product, onClick }) => {
   const dispatch = useDispatch();
   const [addedToCart, setAddedToCart] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [isWishlistLoading, setIsWishlistLoading] = useState(false);
 
   // Calculate discount percentage
   const calculateDiscountPercentage = () => {
@@ -21,10 +23,187 @@ const ProductCard = ({ product, onClick }) => {
 
   const discountPercentage = calculateDiscountPercentage();
 
+  // Check if product is in wishlist when component mounts
+  useEffect(() => {
+    checkWishlistStatus();
+  }, [product.id]);
+
+  // Function to get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
+  };
+
+  // Function to check wishlist status
+  const checkWishlistStatus = async () => {
+    try {
+      const token = getAuthToken();
+      
+      if (!token || !product?.id) {
+        return;
+      }
+
+      const response = await api.post("/wishlist/check-status", {
+        product_id: parseInt(product.id)
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setIsInWishlist(response.data.is_in_wishlist);
+      }
+    } catch (error) {
+      console.error("Error checking wishlist status:", error);
+    }
+  };
+
+  // Function to add product to wishlist
+  const addToWishlist = async () => {
+    try {
+      const token = getAuthToken();
+      
+      if (!token) {
+        alert("Please login to add items to wishlist");
+        return false;
+      }
+
+      const response = await api.post("/wishlist/add", {
+        product_id: parseInt(product.id)
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        console.log("Product added to wishlist successfully:", response.data);
+        return true;
+      } else {
+        throw new Error(response.data.message || 'Failed to add to wishlist');
+      }
+    } catch (error) {
+      console.error("Failed to add to wishlist:", error);
+      
+      if (error.response) {
+        if (error.response.status === 400 && 
+            error.response.data.message === "Product is already in your wishlist") {
+          // Product is already in wishlist, just update state
+          return true;
+        } else if (error.response.status === 401) {
+          handleAuthError();
+        } else {
+          alert("Failed to add to wishlist. Please try again.");
+        }
+      } else {
+        alert("Failed to add to wishlist. Please try again.");
+      }
+      return false;
+    }
+  };
+
+  // Function to remove product from wishlist
+  const removeFromWishlist = async () => {
+    try {
+      const token = getAuthToken();
+      
+      if (!token) {
+        alert("Please login to manage wishlist");
+        return false;
+      }
+
+      // Use the same endpoint as in WishlistPage for consistency
+      const response = await api.post("/wishlist/remove-product", {
+        product_id: parseInt(product.id)
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        console.log("Product removed from wishlist successfully:", response.data);
+        return true;
+      } else {
+        throw new Error(response.data.message || 'Failed to remove from wishlist');
+      }
+    } catch (error) {
+      console.error("Failed to remove from wishlist:", error);
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          handleAuthError();
+        } else {
+          alert("Failed to remove from wishlist. Please try again.");
+        }
+      } else {
+        alert("Failed to remove from wishlist. Please try again.");
+      }
+      return false;
+    }
+  };
+
+  // Handle authentication errors
+  const handleAuthError = () => {
+    console.error("Authentication failed - token may be expired");
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    setIsInWishlist(false);
+    alert("Session expired. Please login again.");
+  };
+
+  // Function to toggle wishlist (add/remove)
+  const toggleWishlist = async (e) => {
+    // Prevent event bubbling to avoid navigation
+    e.stopPropagation();
+    
+    try {
+      const token = getAuthToken();
+      
+      if (!token) {
+        alert("Please login to manage wishlist");
+        return;
+      }
+
+      if (!product?.id) {
+        console.error("Product ID is missing");
+        return;
+      }
+
+      setIsWishlistLoading(true);
+
+      let success = false;
+      if (isInWishlist) {
+        // Remove from wishlist
+        success = await removeFromWishlist();
+        if (success) {
+          setIsInWishlist(false);
+        }
+      } else {
+        // Add to wishlist
+        success = await addToWishlist();
+        if (success) {
+          setIsInWishlist(true);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle wishlist:", error);
+    } finally {
+      setIsWishlistLoading(false);
+    }
+  };
+
   // Function to check if product already exists in cart
   const checkExistingCartItem = async (productId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const userId = localStorage.getItem('userId');
       
       if (!token || !userId) {
@@ -64,7 +243,7 @@ const ProductCard = ({ product, onClick }) => {
 
     try {
       // Get token from localStorage
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       if (!token) {
         console.error("No authentication token found");
@@ -164,10 +343,7 @@ const ProductCard = ({ product, onClick }) => {
             console.error("Detailed validation errors:", error.response.data.errors);
           }
         } else if (error.response.status === 401) {
-          console.error("Authentication failed - token may be expired");
-          localStorage.removeItem('token');
-          localStorage.removeItem('userId');
-          alert("Session expired. Please login again.");
+          handleAuthError();
         }
       } else {
         console.error("Network or other error:", error.message);
@@ -185,10 +361,19 @@ const ProductCard = ({ product, onClick }) => {
     >
       <div className="relative mb-4 flex justify-center items-center min-h-[200px]">
         <button 
-          className="absolute right-0 top-0 z-10"
-          onClick={(e) => e.stopPropagation()} // Prevent navigation when clicking heart
+          className="absolute right-0 top-0 z-10 p-1 hover:bg-gray-100 rounded-full transition-colors"
+          onClick={toggleWishlist}
+          disabled={isWishlistLoading}
         >
-          <Heart className="w-6 h-6 text-gray-400" />
+          <Heart 
+            className={`w-6 h-6 transition-colors ${
+              isInWishlist 
+                ? "text-red-500 fill-red-500" 
+                : isWishlistLoading 
+                ? "text-gray-300" 
+                : "text-gray-400 hover:text-red-400"
+            }`} 
+          />
         </button>
         {discountPercentage > 0 && (
           <span className="absolute left-0 top-0 bg-orange-500 text-white text-sm px-3 py-1 rounded-full">

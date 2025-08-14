@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Edit, ChevronRight, Package, Gift, Bell, Heart, User, ShoppingBag, Mail, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, Truck } from 'lucide-react';
-import { api, API_BASE_URL, IMAGE_BASE_URL } from '../utils/api';
-import OrderDetailsModal from './OrderDetails'; // Import the modal component
+import { 
+  Edit, ChevronRight, Package, Gift, Bell, Heart, User, ShoppingBag, 
+  Mail, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, Truck, 
+  ShoppingCart, X, Star, ArrowLeft, RefreshCw, AlertCircle, Trash2, 
+  ImageOff, Plus, LogOut
+} from 'lucide-react';
+import { useDispatch } from 'react-redux';
+import { addItem } from '../utils/cartSlice';
+import { api } from '../utils/api';
 
 const ProfilePage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
   const [activeTab, setActiveTab] = useState("General");
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -15,6 +23,14 @@ const ProfilePage = () => {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState(null);
+  
+  // Wishlist states
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistError, setWishlistError] = useState(null);
+  const [itemCount, setItemCount] = useState(0);
+  const [processingItems, setProcessingItems] = useState(new Set());
+  const [imageErrors, setImageErrors] = useState(new Set());
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,34 +44,20 @@ const ProfilePage = () => {
     { key: "MyWishlist", label: "My Wishlist", icon: Heart, path: "wishlist" },
   ];
 
-  // Function to get auth token from localStorage
+  // Authentication and API utilities
   const getAuthToken = () => {
     try {
-      const token = localStorage.getItem('token');
-      const authStatus = localStorage.getItem("isAuthenticated");
-      setIsAuthenticated(token && authStatus === "true");
-      if (token) {
-        return token;
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please login to access your profile');
       }
-      
-      const sessionToken = sessionStorage.getItem('auth_token');
-      if (sessionToken) {
-        return sessionToken;
-      }
-      
-      const cookieToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth_token='))
-        ?.split('=')[1];
-      
-      return cookieToken || null;
+      return token;
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;
     }
   };
 
-  // Function to handle API errors
   const handleApiError = (error, context) => {
     if (error.response?.status === 401 || error.message?.includes('401')) {
       setIsAuthenticated(false);
@@ -66,32 +68,218 @@ const ProfilePage = () => {
       return 'Network error. Please check your connection and try again.';
     }
     
-    if (error.response?.status === 500) {
-      return 'Server error. Please try again later.';
-    }
-    
-    if (error.response?.status === 404) {
-      return `${context} not found. Please try again.`;
-    }
-    
-    return error.response?.data?.message || `Failed to load ${context}. Please try again later.`;
+    return error.response?.data?.message || error.message || `Failed to load ${context}`;
   };
 
-  // Function to fetch user orders
+  // Image handling utilities
+  const handleImageError = (itemId) => {
+    setImageErrors(prev => new Set([...prev, itemId]));
+  };
+
+  const getImageUrl = (product, itemId) => {
+    if (imageErrors.has(itemId)) {
+      return "/images/placeholder.png";
+    }
+
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      const firstImage = product.images[0];
+      if (firstImage && firstImage.image_url) {
+        return firstImage.image_url;
+      }
+    }
+
+    if (product.image_url) {
+      return product.image_url;
+    }
+
+    if (product.image) {
+      return product.image;
+    }
+
+    return "/images/placeholder.png";
+  };
+
+  // Wishlist functions
+  const fetchWishlistItems = async () => {
+    try {
+      setWishlistLoading(true);
+      setWishlistError(null);
+
+      const token = getAuthToken();
+      const response = await api.get('/wishlist/get', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        const items = response.data.items || [];
+        setWishlistItems(items);
+        setItemCount(response.data.count || items.length || 0);
+        setImageErrors(new Set());
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch wishlist');
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      const errorMessage = handleApiError(error, 'wishlist');
+      setWishlistError(errorMessage);
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
+  const fetchWishlistCount = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await api.get('/wishlist/count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setItemCount(response.data.count || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist count:", error);
+    }
+  };
+
+  const removeFromWishlist = async (itemId) => {
+    try {
+      setProcessingItems(prev => new Set([...prev, itemId]));
+
+      const token = getAuthToken();
+      const response = await api.delete(`/wishlist/remove/${itemId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setWishlistItems(prev => prev.filter(item => item.id !== itemId));
+        setItemCount(prev => Math.max(0, prev - 1));
+        setImageErrors(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(itemId);
+          return newSet;
+        });
+      } else {
+        throw new Error(response.data.message || 'Failed to remove item');
+      }
+    } catch (error) {
+      console.error("Error removing item:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to remove item from wishlist";
+      alert(errorMessage);
+    } finally {
+      setProcessingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
+  const moveToCart = async (wishlistItemId, product) => {
+    try {
+      setProcessingItems(prev => new Set([...prev, wishlistItemId]));
+
+      const token = getAuthToken();
+      const response = await api.post(`/wishlist/move-to-cart/${wishlistItemId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        dispatch(
+          addItem({
+            id: product.id,
+            name: product.name,
+            price: product.offer_price || product.price,
+            image: getImageUrl(product, wishlistItemId),
+            description: product.description,
+            about_product: product.about_product,
+            benefits: product.benefits,
+            quantity: 1,
+          })
+        );
+
+        setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId));
+        setItemCount(prev => Math.max(0, prev - 1));
+
+        alert("Product moved to cart successfully!");
+      } else {
+        throw new Error(response.data.message || 'Failed to move to cart');
+      }
+    } catch (error) {
+      console.error("Error moving to cart:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to move item to cart";
+      alert(errorMessage);
+    } finally {
+      setProcessingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(wishlistItemId);
+        return newSet;
+      });
+    }
+  };
+
+  const clearWishlist = async () => {
+    if (!window.confirm("Are you sure you want to clear your entire wishlist?")) {
+      return;
+    }
+
+    try {
+      const token = getAuthToken();
+      const response = await api.delete('/wishlist/clear', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setWishlistItems([]);
+        setItemCount(0);
+        setImageErrors(new Set());
+        alert("Wishlist cleared successfully!");
+      } else {
+        throw new Error(response.data.message || 'Failed to clear wishlist');
+      }
+    } catch (error) {
+      console.error("Error clearing wishlist:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to clear wishlist";
+      alert(errorMessage);
+    }
+  };
+
+  const calculateDiscountPercentage = (product) => {
+    if (product.offer_price && product.price && product.offer_price < product.price) {
+      const discount = ((product.price - product.offer_price) / product.price) * 100;
+      return Math.round(discount);
+    }
+    return 0;
+  };
+
+  // Orders functions
   const fetchUserOrders = async () => {
     try {
       setOrdersLoading(true);
       setOrdersError(null);
       
       const token = getAuthToken();
-      
-      if (!token) {
-        setIsAuthenticated(false);
-        setOrdersError('No authentication token found. Please log in again.');
-        return;
-      }
-      
-      const response = await api.get('/orders');
+      const response = await api.get('/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
       
       let ordersData = [];
       
@@ -130,113 +318,67 @@ const ProfilePage = () => {
     }
   };
 
-  // Enhanced tab change handler with URL update
-  const handleTabChange = (tabKey) => {
-    setActiveTab(tabKey);
-    
-    // Update URL without page reload
-    const menuItem = menuItems.find(item => item.key === tabKey);
-    if (menuItem) {
-      navigate(`/profile?tab=${menuItem.path}`, { replace: true });
-    }
-    
-    if (tabKey === "MyOrders") {
-      fetchUserOrders();
-    }
-  };
-
-  // Function to get tab key from URL path
-  const getTabFromUrl = () => {
-    const tab = searchParams.get('tab');
-    if (!tab) return "General";
-    
-    const menuItem = menuItems.find(item => item.path === tab);
-    return menuItem ? menuItem.key : "General";
-  };
-
-  // Initialize active tab from URL on component mount
-  useEffect(() => {
-    const urlTab = getTabFromUrl();
-    setActiveTab(urlTab);
-    
-    // If navigating directly to orders, fetch them
-    if (urlTab === "MyOrders") {
-      // Small delay to ensure component is fully mounted
-      setTimeout(() => {
-        fetchUserOrders();
-      }, 100);
-    }
-  }, [searchParams]);
-
-  // Fetch user profile data
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const token = getAuthToken();
-        
-        if (!token) {
-          setIsAuthenticated(false);
-          setError('No authentication token found. Please log in again.');
-          return;
+  // Profile functions
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = getAuthToken();
+      const response = await api.get('/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
-
-        const response = await api.get('/profile');
-        
-        let profileData = {};
-        
-        if (response.data.success && response.data.data) {
-          profileData = response.data.data;
-        } else if (response.data.user) {
-          profileData = response.data.user;
-        } else if (response.data.profile) {
-          profileData = response.data.profile;
-        } else {
-          profileData = response.data;
-        }
-
-        const mappedUserData = {
-          id: profileData.id || profileData.user_id || profileData._id,
-          firstName: profileData.first_name || profileData.firstName || profileData.fname || 
-                    (profileData.name ? profileData.name.split(' ')[0] : '') || 'User',
-          lastName: profileData.last_name || profileData.lastName || profileData.lname || 
-                   (profileData.name ? profileData.name.split(' ').slice(1).join(' ') : '') || '',
-          email: profileData.email || 'Not provided',
-          phoneNumber: profileData.phone || profileData.phone_number || profileData.phoneNumber || 
-                      profileData.mobile || 'Not provided',
-          address: profileData.address || profileData.full_address || profileData.location || 'Not provided',
-          gender: profileData.gender || 'Not specified',
-          joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long',
-            day: 'numeric'
-          }) : 'Not available',
-          totalOrders: parseInt(profileData.orders_count || profileData.totalOrders || profileData.total_orders || 0),
-          activeCoupons: parseInt(profileData.coupons_count || profileData.activeCoupons || profileData.active_coupons || 0),
-          avatar: profileData.avatar || profileData.profile_image || profileData.image || null,
-          dateOfBirth: profileData.date_of_birth || profileData.dob || null,
-          city: profileData.city || null,
-          country: profileData.country || null,
-          postalCode: profileData.postal_code || profileData.zip_code || null
-        };
-
-        setUserData(mappedUserData);
-        
-      } catch (err) {
-        const errorMessage = handleApiError(err, 'profile');
-        setError(errorMessage);
-        setUserData(null);
-      } finally {
-        setLoading(false);
+      });
+      
+      let profileData = {};
+      
+      if (response.data.success && response.data.data) {
+        profileData = response.data.data;
+      } else if (response.data.user) {
+        profileData = response.data.user;
+      } else if (response.data.profile) {
+        profileData = response.data.profile;
+      } else {
+        profileData = response.data;
       }
-    };
 
-    if (isAuthenticated) {
-      fetchUserProfile();
+      const mappedUserData = {
+        id: profileData.id || profileData.user_id || profileData._id,
+        firstName: profileData.first_name || profileData.firstName || profileData.fname || 
+                  (profileData.name ? profileData.name.split(' ')[0] : '') || 'User',
+        lastName: profileData.last_name || profileData.lastName || profileData.lname || 
+                 (profileData.name ? profileData.name.split(' ').slice(1).join(' ') : '') || '',
+        email: profileData.email || 'Not provided',
+        phoneNumber: profileData.phone || profileData.phone_number || profileData.phoneNumber || 
+                    profileData.mobile || 'Not provided',
+        address: profileData.address || profileData.full_address || profileData.location || 'Not provided',
+        gender: profileData.gender || 'Not specified',
+        joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long',
+          day: 'numeric'
+        }) : 'Not available',
+        totalOrders: parseInt(profileData.orders_count || profileData.totalOrders || profileData.total_orders || 0),
+        activeCoupons: parseInt(profileData.coupons_count || profileData.activeCoupons || profileData.active_coupons || 0),
+        avatar: profileData.avatar || profileData.profile_image || profileData.image || null,
+        dateOfBirth: profileData.date_of_birth || profileData.dob || null,
+        city: profileData.city || null,
+        country: profileData.country || null,
+        postalCode: profileData.postal_code || profileData.zip_code || null
+      };
+
+      setUserData(mappedUserData);
+      
+    } catch (err) {
+      const errorMessage = handleApiError(err, 'profile');
+      setError(errorMessage);
+      setUserData(null);
+    } finally {
+      setLoading(false);
     }
-  }, [isAuthenticated]);
+  };
 
   const handleLogout = async () => {
     try {
@@ -244,7 +386,12 @@ const ProfilePage = () => {
       
       if (token) {
         try {
-          const response = await api.post('/logout');
+          await api.post('/logout', {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
         } catch (logoutError) {
           // Continue with local logout even if API call fails
         }
@@ -257,6 +404,9 @@ const ProfilePage = () => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('isAuthenticated');
         sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('token');
+        
+        // Clear cookies
         document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
         document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       } catch (storageError) {
@@ -266,12 +416,37 @@ const ProfilePage = () => {
       setIsAuthenticated(false);
       setUserData(null);
       setOrders([]);
+      setWishlistItems([]);
       
-      window.location.href = '/user';
+      navigate('/login');
     }
   };
 
-  // Function to get status color and icon
+  // Tab management
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    
+    const menuItem = menuItems.find(item => item.key === tabKey);
+    if (menuItem) {
+      navigate(`/profile?tab=${menuItem.path}`, { replace: true });
+    }
+    
+    if (tabKey === "MyOrders") {
+      fetchUserOrders();
+    } else if (tabKey === "MyWishlist") {
+      fetchWishlistItems();
+    }
+  };
+
+  const getTabFromUrl = () => {
+    const tab = searchParams.get('tab');
+    if (!tab) return "General";
+    
+    const menuItem = menuItems.find(item => item.path === tab);
+    return menuItem ? menuItem.key : "General";
+  };
+
+  // Status utilities
   const getOrderStatusDisplay = (status) => {
     const statusLower = status?.toLowerCase() || '';
     
@@ -298,19 +473,40 @@ const ProfilePage = () => {
     }
   };
 
-  // Function to handle view order details
+  // Modal functions
   const handleViewOrderDetails = (orderId) => {
     setSelectedOrderId(orderId);
     setIsModalOpen(true);
   };
 
-  // Function to close modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedOrderId(null);
   };
 
-  // Component for General tab
+  // Effects
+  useEffect(() => {
+    const urlTab = getTabFromUrl();
+    setActiveTab(urlTab);
+    
+    if (urlTab === "MyOrders") {
+      setTimeout(() => {
+        fetchUserOrders();
+      }, 100);
+    } else if (urlTab === "MyWishlist") {
+      setTimeout(() => {
+        fetchWishlistItems();
+      }, 100);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUserProfile();
+    }
+  }, [isAuthenticated]);
+
+  // Component renderers
   const GeneralComponent = () => (
     <div className='bg-white'>
       <div className="flex items-center justify-between mb-6 border-b border-gray-300">
@@ -395,7 +591,6 @@ const ProfilePage = () => {
     </div>
   );
 
-  // Updated Component for My Orders tab
   const MyOrdersComponent = () => (
     <div className='bg-white'>
       <div className="flex items-center justify-between mb-6 border-b border-gray-300">
@@ -432,7 +627,10 @@ const ProfilePage = () => {
           <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-semibold text-gray-600 mb-2">No orders found</h3>
           <p className="text-gray-500">Your order history will appear here once you make your first purchase</p>
-          <button className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+          <button 
+            onClick={() => navigate('/')}
+            className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+          >
             Start Shopping
           </button>
         </div>
@@ -468,7 +666,6 @@ const ProfilePage = () => {
                       <p className="text-lg font-semibold text-gray-800">
                         {order.currency} {order.total.toFixed(2)}
                       </p>
-                     
                     </div>
                   </div>
                 </div>
@@ -478,7 +675,10 @@ const ProfilePage = () => {
                     <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
                     <p className="text-sm text-gray-800">{order.shippingAddress}</p>
                   </div>
-                
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Items</p>
+                    <p className="text-sm text-gray-800">{order.itemsCount} item(s)</p>
+                  </div>
                 </div>
 
                 {order.trackingNumber && (
@@ -504,20 +704,11 @@ const ProfilePage = () => {
               </div>
             );
           })}
-          
-          {orders.length >= 10 && (
-            <div className="text-center pt-4">
-              <button className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                Load More Orders
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 
-  // Component for My Coupons tab
   const MyCouponsComponent = () => (
     <div className='bg-white'>
       <div className="flex items-center justify-between mb-6 border-b border-gray-300">
@@ -528,14 +719,16 @@ const ProfilePage = () => {
         <Gift className="w-16 h-16 mx-auto text-gray-300 mb-4" />
         <h3 className="text-lg font-semibold text-gray-600 mb-2">No active coupons</h3>
         <p className="text-gray-500">Your available coupons will appear here</p>
-        <button className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+        <button 
+          onClick={() => navigate('/')}
+          className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+        >
           Browse Offers
         </button>
       </div>
     </div>
   );
 
-  // Component for Notifications tab
   const NotificationsComponent = () => (
     <div className='bg-white'>
       <div className="flex items-center justify-between mb-6 border-b border-gray-300">
@@ -550,25 +743,202 @@ const ProfilePage = () => {
     </div>
   );
 
-  // Component for Wishlist tab
-  const WishlistComponent = () => (
+  const MyWishlistComponent = () => (
     <div className='bg-white'>
       <div className="flex items-center justify-between mb-6 border-b border-gray-300">
-        <h2 className="text-2xl font-semibold mb-3">My Wishlist</h2>
-        <Heart className="w-6 h-6 text-gray-500" />
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
+            <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+            My Wishlist
+          </h2>
+          <p className="text-sm text-gray-600 mb-3">
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+          </p>
+        </div>
+        
+        {wishlistItems.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={fetchWishlistItems}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button
+              onClick={clearWishlist}
+              className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All
+            </button>
+          </div>
+        )}
       </div>
-      <div className="text-center py-12">
-        <Heart className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">Your wishlist is empty</h3>
-        <p className="text-gray-500">Save items you love for later</p>
-        <button className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
-          Continue Shopping
-        </button>
-      </div>
+
+      {wishlistError && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600">⚠️ {wishlistError}</p>
+          <button 
+            onClick={fetchWishlistItems}
+            className="mt-2 text-red-600 underline hover:text-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {wishlistLoading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your wishlist...</p>
+        </div>
+      ) : wishlistItems.length === 0 ? (
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">Your wishlist is empty</h3>
+          <p className="text-gray-500">Start adding products you love to your wishlist</p>
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+          >
+            Continue Shopping
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {wishlistItems.map((item) => {
+            const product = item.product;
+            const discountPercentage = calculateDiscountPercentage(product);
+            const isProcessing = processingItems.has(item.id);
+            const imageUrl = getImageUrl(product, item.id);
+            const hasImageError = imageErrors.has(item.id);
+
+            return (
+              <div
+                key={item.id}
+                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col border border-gray-200"
+              >
+                {/* Product Image */}
+                <div className="relative aspect-square bg-gray-100">
+                  {hasImageError ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <div className="text-center">
+                        <ImageOff className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Image not available</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={imageUrl}
+                      alt={product.name || 'Product image'}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => navigate(`/product/${product.id}`)}
+                      onError={() => handleImageError(item.id)}
+                    />
+                  )}
+
+                  {discountPercentage > 0 && (
+                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                      {discountPercentage}% OFF
+                    </span>
+                  )}
+
+                  <button
+                    onClick={() => removeFromWishlist(item.id)}
+                    disabled={isProcessing}
+                    className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${isProcessing
+                        ? 'bg-gray-200 opacity-50 cursor-not-allowed'
+                        : 'bg-white hover:bg-gray-100 shadow-sm'
+                      }`}
+                    title="Remove from wishlist"
+                  >
+                    {isProcessing ? (
+                      <RefreshCw className="w-5 h-5 animate-spin text-gray-500" />
+                    ) : (
+                      <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Product Details */}
+                <div className="p-4 flex flex-col flex-grow">
+                  {/* Rating */}
+                  <div className="flex gap-1 mb-2">
+                    {[1, 2, 3, 4, 5].map((_, index) => (
+                      <Star
+                        key={index}
+                        className={`w-4 h-4 ${index < (product.rating || 4)
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-gray-300"
+                          }`}
+                      />
+                    ))}
+                    {product.rating && (
+                      <span className="text-sm text-gray-600 ml-1">
+                        ({product.rating})
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Product Name */}
+                  <h3
+                    className="font-medium text-gray-900 mb-2 line-clamp-2 cursor-pointer hover:text-orange-600"
+                    onClick={() => navigate(`/product/${product.id}`)}
+                  >
+                    {product.name || "Unnamed Product"}
+                  </h3>
+
+                  {/* Description */}
+                  {product.description && (
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {product.description}
+                    </p>
+                  )}
+
+                  {/* Price */}
+                  <div className="mb-4">
+                    {product.offer_price && product.offer_price < product.price ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-red-600">
+                          {product.offer_price} AED
+                        </span>
+                        <span className="text-sm text-gray-500 line-through">
+                          {product.price} AED
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-lg font-bold text-gray-900">
+                        {product.price || "Price not available"} AED
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Button section */}
+                  <div className="mt-auto">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => moveToCart(item.id, product)}
+                        disabled={isProcessing}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${isProcessing
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-orange-500 hover:bg-orange-600 text-white"
+                          }`}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        {isProcessing ? "Moving..." : "Move to Cart"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
-  // Function to render active component
   const renderActiveComponent = () => {
     switch (activeTab) {
       case "General":
@@ -580,7 +950,7 @@ const ProfilePage = () => {
       case "AllNotification":
         return <NotificationsComponent />;
       case "MyWishlist":
-        return <WishlistComponent />;
+        return <MyWishlistComponent />;
       default:
         return <GeneralComponent />;
     }
@@ -594,7 +964,7 @@ const ProfilePage = () => {
           <h2 className="text-2xl font-semibold mb-4">Authentication Required</h2>
           <p className="text-gray-600 mb-6">Please log in to access your profile</p>
           <button 
-            onClick={() => window.location.href = '/user'}
+            onClick={() => navigate('/login')}
             className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             Go to Login
@@ -621,6 +991,7 @@ const ProfilePage = () => {
     return (
       <div className="bg-[#f7f7ee] min-h-screen p-4 flex items-center justify-center">
         <div className="bg-white p-8 rounded-xl shadow-lg text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-semibold mb-4 text-red-600">Error Loading Profile</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="space-x-4">
@@ -693,8 +1064,9 @@ const ProfilePage = () => {
               <div className="mt-auto p-1">
                 <button 
                   onClick={handleLogout}
-                  className="w-full py-2 bg-white border border-gray-200 rounded-xl text-gray-800 hover:bg-gray-50 mt-12"
+                  className="w-full py-2 bg-white border border-gray-200 rounded-xl text-gray-800 hover:bg-gray-50 mt-12 flex items-center justify-center gap-2"
                 >
+                  <LogOut className="w-4 h-4" />
                   Logout
                 </button>
               </div>
@@ -713,8 +1085,9 @@ const ProfilePage = () => {
               </div>
               <button 
                 onClick={handleLogout}
-                className="text-gray-600 bg-[#f7f7ee] p-1 rounded-md"
+                className="text-gray-600 bg-[#f7f7ee] p-1 rounded-md flex items-center gap-1"
               >
+                <LogOut className="w-4 h-4" />
                 Logout
               </button>
             </div>
@@ -749,15 +1122,83 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
-
-      {/* Order Details Modal */}
-      <OrderDetailsModal 
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        orderId={selectedOrderId}
-      />
     </div>
   );
+};
+
+// Export utility functions for use in other components
+export const wishlistUtils = {
+  checkWishlistStatus: async (productId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return false;
+
+      const response = await api.post('/wishlist/check-status',
+        { product_id: productId },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return response.data.is_in_wishlist || false;
+    } catch (error) {
+      console.error("Error checking wishlist status:", error);
+      return false;
+    }
+  },
+
+  addToWishlist: async (productId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please login to add items to wishlist');
+      }
+
+      const response = await api.post('/wishlist/add',
+        { product_id: productId },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return response.data.success;
+    } catch (error) {
+      console.error("Error adding to wishlist:", error);
+      throw error;
+    }
+  },
+
+  removeFromWishlist: async (productId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please login to manage your wishlist');
+      }
+
+      const response = await api.post('/wishlist/remove-product',
+        { product_id: productId },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return response.data.success;
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      throw error;
+    }
+  }
 };
 
 export default ProfilePage;

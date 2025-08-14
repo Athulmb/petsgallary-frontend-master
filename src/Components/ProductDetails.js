@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { FaHeart } from "react-icons/fa";
+import { FaHeart, FaCheck } from "react-icons/fa";
 import { useDispatch } from "react-redux";
 import { addItem } from "../utils/cartSlice";
 import { api } from "../utils/api";
@@ -42,6 +42,35 @@ const ProductImageGallery = ({ product }) => {
   );
 };
 
+// Success Popup Component
+const SuccessPopup = ({ show, onClose, message }) => {
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg p-6 mx-4 max-w-sm w-full shadow-2xl transform animate-pulse">
+        <div className="flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+            <FaCheck className="text-white text-xl" />
+          </div>
+        </div>
+        <h3 className="text-lg font-semibold text-center text-gray-900 mb-2">
+          Success!
+        </h3>
+        <p className="text-center text-gray-600 mb-4">
+          {message}
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#FF9B57] text-white py-2 px-4 rounded-lg font-medium hover:bg-orange-600 transition-colors"
+        >
+          Continue Shopping
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ProductDetails = () => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
@@ -49,9 +78,10 @@ const ProductDetails = () => {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedPetType, setSelectedPetType] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const dispatch = useDispatch();
-  const [addedToCart, setAddedToCart] = useState(false);
 
   useEffect(() => {
     console.log("Fetching product with ID:", id);
@@ -153,6 +183,10 @@ const ProductDetails = () => {
           })
         );
 
+        // Show success popup for updated quantity
+        setSuccessMessage(`Cart updated! ${quantity} more ${product.name} added to your cart.`);
+        setShowSuccessPopup(true);
+
       } else {
         // Product doesn't exist, add new item
         const payload = {
@@ -185,10 +219,11 @@ const ProductDetails = () => {
             quantity: quantity,
           })
         );
-      }
 
-      setAddedToCart(true);
-      setTimeout(() => setAddedToCart(false), 2000);
+        // Show success popup for new item
+        setSuccessMessage(`${product.name} has been successfully added to your cart!`);
+        setShowSuccessPopup(true);
+      }
       
     } catch (error) {
       console.error("Failed to sync cart:", error);
@@ -219,11 +254,23 @@ const ProductDetails = () => {
     }
   };
 
+  const closeSuccessPopup = () => {
+    setShowSuccessPopup(false);
+    setSuccessMessage("");
+  };
+
   if (loading) return <p className="p-8">Loading...</p>;
   if (!product) return <p className="p-8">No product found</p>;
 
   return (
     <div className="w-full min-h-screen bg-[#F5F5EB] p-4 sm:p-6 md:p-8 lg:p-[80px]">
+      {/* Success Popup */}
+      <SuccessPopup 
+        show={showSuccessPopup} 
+        onClose={closeSuccessPopup}
+        message={successMessage}
+      />
+
       <div className="mb-6">
         <Link to="/store">
           <button className="text-gray-600 flex items-center">
@@ -326,10 +373,6 @@ const ProductDetails = () => {
               <FaHeart />
             </button>
           </div>
-
-          {addedToCart && (
-            <p className="text-green-600 text-sm font-medium">Added to cart!</p>
-          )}
         </div>
       </div>
 
