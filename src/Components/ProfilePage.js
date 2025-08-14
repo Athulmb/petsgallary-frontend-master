@@ -745,36 +745,39 @@ const ProfilePage = () => {
 
   const MyWishlistComponent = () => (
     <div className='bg-white'>
-      <div className="flex items-center justify-between mb-6 border-b border-gray-300">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
-            <Heart className="w-6 h-6 text-red-500 fill-red-500" />
-            My Wishlist
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-          </p>
-        </div>
-        
-        {wishlistItems.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={fetchWishlistItems}
-              className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-            <button
-              onClick={clearWishlist}
-              className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear All
-            </button>
-          </div>
-        )}
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 border-b border-gray-300 gap-4 sm:gap-0">
+  {/* Left side: Title and item count */}
+  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+    <h2 className="text-xl sm:text-2xl font-semibold flex items-center gap-2">
+      <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+      My Wishlist
+    </h2>
+    <p className="text-sm text-gray-600">
+      {itemCount} {itemCount === 1 ? "item" : "items"}
+    </p>
+  </div>
+
+  {/* Right side: Buttons */}
+  {wishlistItems.length > 0 && (
+    <div className="flex flex-wrap gap-2">
+      <button
+        onClick={fetchWishlistItems}
+        className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+      >
+        <RefreshCw className="w-4 h-4" />
+        Refresh
+      </button>
+      <button
+        onClick={clearWishlist}
+        className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
+      >
+        <Trash2 className="w-4 h-4" />
+        Clear All
+      </button>
+    </div>
+  )}
+</div>
+
 
       {wishlistError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
