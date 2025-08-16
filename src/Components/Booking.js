@@ -49,17 +49,7 @@ export const BookingPage = () => {
             message: combinedMessage // Combined grooming type and message
         };
 
-        // Comprehensive logging
-        console.log('Form Data being sent:', apiData);
-        console.log('Original grooming type:', formData.groomingType);
-        console.log('Original message:', formData.message);
-        console.log('Combined message:', combinedMessage);
-        console.log('Token Status:');
-        console.log('- authToken from localStorage:', authToken ? 'Found' : 'Not found');
-        console.log('- token from localStorage:', token ? 'Found' : 'Not found');
-        console.log('- Final token being used:', finalToken ? 'Token available' : 'No token available');
-        console.log('- Token preview (first 20 chars):', finalToken ? finalToken.substring(0, 20) + '...' : 'N/A');
-
+       
         try {
             const headers = {
                 'Content-Type': 'application/json',
@@ -72,12 +62,6 @@ export const BookingPage = () => {
             } else {
                 console.log('⚠️ No token found - proceeding without authorization');
             }
-
-            console.log('Request Configuration:');
-            console.log('- URL:', 'https://backend.petsgallerydubai.com/api/bookings');
-            console.log('- Method:', 'POST');
-            console.log('- Headers:', headers);
-            console.log('- Body:', JSON.stringify(apiData, null, 2));
 
             const response = await fetch('https://backend.petsgallerydubai.com/api/bookings', {
                 method: 'POST',

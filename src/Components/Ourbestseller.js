@@ -82,6 +82,7 @@ const ProductCard = ({ product, onClick }) => {
 
       if (response.data.success) {
         console.log("Product added to wishlist successfully:", response.data);
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
         return true;
       } else {
         throw new Error(response.data.message || 'Failed to add to wishlist');

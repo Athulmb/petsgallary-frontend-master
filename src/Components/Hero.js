@@ -53,32 +53,35 @@ const Hero = () => {
                 </div>
 
                     {/* Action Cards */}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 h-full">
                         {/* Go To Our Store */}
+                        <Link to="/store">
+                                    
                         <div className="bg-[#FF9B57] rounded-xl px-6 py-6 flex flex-col justify-between h-full">
                             <h3 className="text-xl font-semibold">Go To Our Store</h3>
                             <div className="flex justify-end mt-3">
-                           <Link to="/store">
   <div className="bg-white p-3 rounded-full cursor-pointer">
     <ArrowUpRight className="w-6 h-6" />
   </div>
-</Link>
                             </div>
-                        </div>
+                        </div></Link>
+
                         {/* Book Grooming Section */}
+                        <Link to="/grooming">
+
                         <div className="bg-white rounded-xl px-6 py-6 flex flex-col justify-between h-full">
                             <h3 className="text-xl font-semibold">Book Grooming Section</h3>
                             <div className="flex justify-between items-center">
                                 <p className="text-medium text-gray-500 text-sm sm:text-base">From Our Specialist</p>
-                                <Link to="/grooming">
 
                                 <div className="bg-orange-200 p-3 rounded-full flex-shrink-0">
                                     <ArrowUpRight className="w-6 h-6" />
                                 </div>
-                                </Link>
 
                             </div>
-                        </div>
+                        </div>                                </Link>
+
                     </div>
                 </div>
                 {/* Center Section - Dog Image */}

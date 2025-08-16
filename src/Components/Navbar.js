@@ -3,14 +3,52 @@ import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchCartFromAPI } from '../utils/cartSlice'; // Update this path
+import { api } from '../utils/api';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const cartItems = useSelector(store => store.cart.items);
   const cartLoading = useSelector(store => store.cart.loading);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // Get authentication token
+  const getAuthToken = () => {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  };
+
+  // Fetch wishlist count
+  const fetchWishlistCount = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setWishlistCount(0);
+        return;
+      }
+
+      setWishlistLoading(true);
+      const response = await api.get('/wishlist/count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setWishlistCount(response.data.count || 0);
+      } else {
+        setWishlistCount(0);
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist count:", error);
+      setWishlistCount(0);
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   useEffect(() => {
     const checkAuthStatus = () => {
@@ -22,6 +60,9 @@ const Navbar = () => {
       // Fetch cart data when user is authenticated
       if (newAuthStatus) {
         dispatch(fetchCartFromAPI());
+        fetchWishlistCount(); // Fetch wishlist count
+      } else {
+        setWishlistCount(0); // Reset wishlist count when not authenticated
       }
     };
 
@@ -34,19 +75,43 @@ const Navbar = () => {
     
     const handleUserLogout = () => {
       setIsAuthenticated(false);
+      setWishlistCount(0); // Reset wishlist count on logout
       // Cart will be cleared automatically by the API call in cartSlice
+    };
+
+    // Custom event listener for wishlist updates
+    const handleWishlistUpdate = () => {
+      if (isAuthenticated) {
+        fetchWishlistCount();
+      }
     };
 
     window.addEventListener('userLogin', handleUserLogin);
     window.addEventListener('userLogout', handleUserLogout);
     window.addEventListener('storage', checkAuthStatus);
+    window.addEventListener('wishlistUpdated', handleWishlistUpdate);
 
     return () => {
       window.removeEventListener('userLogin', handleUserLogin);
       window.removeEventListener('userLogout', handleUserLogout);
       window.removeEventListener('storage', checkAuthStatus);
+      window.removeEventListener('wishlistUpdated', handleWishlistUpdate);
     };
-  }, [dispatch]);
+  }, [dispatch, isAuthenticated]);
+
+  // Refresh wishlist count when user comes back to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated) {
+        fetchWishlistCount();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated]);
 
   const getUserIconLink = () => {
     return isAuthenticated ? "/profile" : "/user";
@@ -59,6 +124,7 @@ const Navbar = () => {
       navigate("/user");
     }
   };
+  
   const handleHeartClick = () => {
     if (isAuthenticated) {
       navigate("/wishlist");
@@ -92,8 +158,16 @@ const Navbar = () => {
           </Link>
 
           <div className="flex items-center gap-5">
-            <button onClick={handleHeartClick} className="flex hover:text-gray-600 transition-colors">
+            <button onClick={handleHeartClick} className="relative flex hover:text-gray-600 transition-colors">
               <Heart size={26} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </span>
+              )}
+              {wishlistLoading && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full animate-pulse"></span>
+              )}
             </button>
 
             <button onClick={handleCartClick} className="relative text-black hover:text-gray-600 transition-colors">
@@ -128,8 +202,16 @@ const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-6">
-            <button onClick={handleHeartClick} className="flex hover:text-gray-600 transition-colors">
+            <button onClick={handleHeartClick} className="relative flex hover:text-gray-600 transition-colors">
               <Heart size={26} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </span>
+              )}
+              {wishlistLoading && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full animate-pulse"></span>
+              )}
             </button>
 
             <button onClick={handleCartClick} className="relative text-black hover:text-gray-600 transition-colors">
@@ -171,14 +253,29 @@ const Navbar = () => {
 
           <div className="border-t border-gray-200 mt-4 pt-4">
             {isAuthenticated ? (
-              <Link 
-                to="/profile" 
-                className="px-6 py-4 text-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <User size={20} />
-                Profile
-              </Link>
+              <>
+                <Link 
+                  to="/profile" 
+                  className="px-6 py-4 text-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <User size={20} />
+                  Profile
+                </Link>
+                <Link 
+                  to="/wishlist" 
+                  className="px-6 py-4 text-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Heart size={20} />
+                  Wishlist
+                  {wishlistCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </Link>
+              </>
             ) : (
               <Link 
                 to="/user" 

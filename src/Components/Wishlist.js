@@ -156,6 +156,9 @@ const WishlistPage = () => {
           return newSet;
         });
 
+        // 🔥 Dispatch event to update navbar counter
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+
         console.log("Item removed successfully");
       } else {
         throw new Error(response.data.message || 'Failed to remove item');
@@ -204,6 +207,9 @@ const WishlistPage = () => {
         // Remove from wishlist state
         setWishlistItems(prev => prev.filter(item => item.id !== wishlistItemId));
         setItemCount(prev => Math.max(0, prev - 1));
+
+        // 🔥 Dispatch event to update navbar counter
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
 
         alert("Product moved to cart successfully!");
       } else {
@@ -265,6 +271,10 @@ const WishlistPage = () => {
         setWishlistItems([]);
         setItemCount(0);
         setImageErrors(new Set());
+
+        // 🔥 Dispatch event to update navbar counter
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+
         alert("Wishlist cleared successfully!");
       } else {
         throw new Error(response.data.message || 'Failed to clear wishlist');
@@ -585,6 +595,11 @@ export const wishlistUtils = {
         }
       );
 
+      if (response.data.success) {
+        // 🔥 Dispatch event to update navbar counter
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+      }
+
       return response.data.success;
     } catch (error) {
       console.error("Error adding to wishlist:", error);
@@ -609,6 +624,11 @@ export const wishlistUtils = {
           }
         }
       );
+
+      if (response.data.success) {
+        // 🔥 Dispatch event to update navbar counter
+        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+      }
 
       return response.data.success;
     } catch (error) {

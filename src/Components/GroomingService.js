@@ -48,18 +48,20 @@ export default function GroomingServices() {
         From professional grooming services that pamper your pet to a handpicked range of premium pet food and accessories, every product and service we offer is chosen with care and expertise. We believe in raising the standard for pet care, which is why countless pet owners trust us as the best pet shop in Dubai.        </p>
         
         {/* Booking Card */}
+        <Link to="/grooming">
+
         <div className="bg-white rounded-3xl p-6 shadow-sm h-[227px] w-full sm:w-[327px]">
           <h3 className="text-xl font-semibold">Book Grooming<br/>Section</h3>
           <div className='flex justify-between items-center mb-auto mt-20'>
             <p className="text-sm text-gray-500 mt-1">From Our Specialist</p>
             <div className="flex justify-end mt-4">
               <div className="bg-orange-200 p-2 rounded-full">
-                <Link to="/grooming">
-                <ArrowUpRight className="w-5 h-5" /></Link>
+                <ArrowUpRight className="w-5 h-5" />
               </div>
             </div>
           </div>
         </div>
+        </Link>
       </div>
     </div>
   );
