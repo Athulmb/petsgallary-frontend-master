@@ -204,7 +204,7 @@ export default function RegisterForm() {
 
           <div className="w-full md:w-2/5 p-4 md:p-14 flex flex-col justify-center">
             <div className="flex justify-center mb-4">
-              <img src="/logo png 1.png" alt="Logo" className="h-20 w-20" />
+              <img src="/logopng2.png" alt="Logo" className="h-20 w-20" />
             </div>
 
             <h2 className="text-center text-xl font-bold text-gray-900">Create an Account</h2>
