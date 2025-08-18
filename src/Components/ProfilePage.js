@@ -418,7 +418,7 @@ const ProfilePage = () => {
       setOrders([]);
       setWishlistItems([]);
       
-      navigate('/login');
+      navigate('/user');
     }
   };
 
@@ -967,7 +967,7 @@ const ProfilePage = () => {
           <h2 className="text-2xl font-semibold mb-4">Authentication Required</h2>
           <p className="text-gray-600 mb-6">Please log in to access your profile</p>
           <button 
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/user')}
             className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             Go to Login

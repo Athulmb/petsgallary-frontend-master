@@ -329,7 +329,7 @@ const WishlistPage = () => {
             </button>
             {error.includes('login') && (
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/user')}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors"
               >
                 Login
