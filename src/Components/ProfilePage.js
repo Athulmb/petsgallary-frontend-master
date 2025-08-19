@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { 
-  Edit, ChevronRight, Package, Gift, Bell, Heart, User, ShoppingBag, 
-  Mail, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, Truck, 
-  ShoppingCart, X, Star, ArrowLeft, RefreshCw, AlertCircle, Trash2, 
+import {
+  Edit, ChevronRight, Package, Gift, Bell, Heart, User, ShoppingBag,
+  Mail, Phone, MapPin, Calendar, Clock, CheckCircle, XCircle, Truck,
+  ShoppingCart, X, Star, ArrowLeft, RefreshCw, AlertCircle, Trash2,
   ImageOff, Plus, LogOut
 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { addItem } from '../utils/cartSlice';
 import { api } from '../utils/api';
-
+import OrderDetailsModal from './OrderDetails'; 
 const ProfilePage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
+
   const [activeTab, setActiveTab] = useState("General");
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -23,7 +23,7 @@ const ProfilePage = () => {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState(null);
-  
+
   // Wishlist states
   const [wishlistItems, setWishlistItems] = useState([]);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -31,7 +31,7 @@ const ProfilePage = () => {
   const [itemCount, setItemCount] = useState(0);
   const [processingItems, setProcessingItems] = useState(new Set());
   const [imageErrors, setImageErrors] = useState(new Set());
-  
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -63,11 +63,11 @@ const ProfilePage = () => {
       setIsAuthenticated(false);
       return 'Session expired. Please log in again.';
     }
-    
+
     if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
       return 'Network error. Please check your connection and try again.';
     }
-    
+
     return error.response?.data?.message || error.message || `Failed to load ${context}`;
   };
 
@@ -272,7 +272,7 @@ const ProfilePage = () => {
     try {
       setOrdersLoading(true);
       setOrdersError(null);
-      
+
       const token = getAuthToken();
       const response = await api.get('/orders', {
         headers: {
@@ -280,9 +280,11 @@ const ProfilePage = () => {
           'Accept': 'application/json'
         }
       });
-      
+      console.log("📦 Raw API Response:", response);
+
+
       let ordersData = [];
-      
+
       if (response.data.success && response.data.data) {
         ordersData = Array.isArray(response.data.data) ? response.data.data : [];
       } else if (Array.isArray(response.data)) {
@@ -308,7 +310,7 @@ const ProfilePage = () => {
 
       mappedOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
       setOrders(mappedOrders);
-      
+
     } catch (err) {
       const errorMessage = handleApiError(err, 'orders');
       setOrdersError(errorMessage);
@@ -323,7 +325,7 @@ const ProfilePage = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = getAuthToken();
       const response = await api.get('/profile', {
         headers: {
@@ -331,9 +333,9 @@ const ProfilePage = () => {
           'Accept': 'application/json'
         }
       });
-      
+    
       let profileData = {};
-      
+
       if (response.data.success && response.data.data) {
         profileData = response.data.data;
       } else if (response.data.user) {
@@ -346,17 +348,17 @@ const ProfilePage = () => {
 
       const mappedUserData = {
         id: profileData.id || profileData.user_id || profileData._id,
-        firstName: profileData.first_name || profileData.firstName || profileData.fname || 
-                  (profileData.name ? profileData.name.split(' ')[0] : '') || 'User',
-        lastName: profileData.last_name || profileData.lastName || profileData.lname || 
-                 (profileData.name ? profileData.name.split(' ').slice(1).join(' ') : '') || '',
+        firstName: profileData.first_name || profileData.firstName || profileData.fname ||
+          (profileData.name ? profileData.name.split(' ')[0] : '') || 'User',
+        lastName: profileData.last_name || profileData.lastName || profileData.lname ||
+          (profileData.name ? profileData.name.split(' ').slice(1).join(' ') : '') || '',
         email: profileData.email || 'Not provided',
-        phoneNumber: profileData.phone || profileData.phone_number || profileData.phoneNumber || 
-                    profileData.mobile || 'Not provided',
+        phoneNumber: profileData.phone || profileData.phone_number || profileData.phoneNumber ||
+          profileData.mobile || 'Not provided',
         address: profileData.address || profileData.full_address || profileData.location || 'Not provided',
         gender: profileData.gender || 'Not specified',
-        joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { 
-          year: 'numeric', 
+        joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
           month: 'long',
           day: 'numeric'
         }) : 'Not available',
@@ -370,7 +372,7 @@ const ProfilePage = () => {
       };
 
       setUserData(mappedUserData);
-      
+
     } catch (err) {
       const errorMessage = handleApiError(err, 'profile');
       setError(errorMessage);
@@ -383,7 +385,7 @@ const ProfilePage = () => {
   const handleLogout = async () => {
     try {
       const token = getAuthToken();
-      
+
       if (token) {
         try {
           await api.post('/logout', {}, {
@@ -405,19 +407,19 @@ const ProfilePage = () => {
         localStorage.removeItem('isAuthenticated');
         sessionStorage.removeItem('auth_token');
         sessionStorage.removeItem('token');
-        
+
         // Clear cookies
         document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname;
         document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       } catch (storageError) {
         // Continue with logout even if storage clear fails
       }
-      
+
       setIsAuthenticated(false);
       setUserData(null);
       setOrders([]);
       setWishlistItems([]);
-      
+
       navigate('/user');
     }
   };
@@ -425,12 +427,12 @@ const ProfilePage = () => {
   // Tab management
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey);
-    
+
     const menuItem = menuItems.find(item => item.key === tabKey);
     if (menuItem) {
       navigate(`/profile?tab=${menuItem.path}`, { replace: true });
     }
-    
+
     if (tabKey === "MyOrders") {
       fetchUserOrders();
     } else if (tabKey === "MyWishlist") {
@@ -441,7 +443,7 @@ const ProfilePage = () => {
   const getTabFromUrl = () => {
     const tab = searchParams.get('tab');
     if (!tab) return "General";
-    
+
     const menuItem = menuItems.find(item => item.path === tab);
     return menuItem ? menuItem.key : "General";
   };
@@ -449,7 +451,7 @@ const ProfilePage = () => {
   // Status utilities
   const getOrderStatusDisplay = (status) => {
     const statusLower = status?.toLowerCase() || '';
-    
+
     switch (statusLower) {
       case 'delivered':
       case 'completed':
@@ -488,7 +490,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const urlTab = getTabFromUrl();
     setActiveTab(urlTab);
-    
+
     if (urlTab === "MyOrders") {
       setTimeout(() => {
         fetchUserOrders();
@@ -515,7 +517,7 @@ const ProfilePage = () => {
           <Edit className="w-5 h-5" />
         </button>
       </div>
-      
+
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -531,7 +533,7 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-        
+
         <div>
           <label className="block text-gray-600 mb-2 text-sm font-medium">Email</label>
           <div className="p-3 bg-[#f7f7ee] rounded text-gray-800 flex items-center">
@@ -539,7 +541,7 @@ const ProfilePage = () => {
             {userData?.email || 'Not provided'}
           </div>
         </div>
-        
+
         <div>
           <label className="block text-gray-600 mb-2 text-sm font-medium">Phone Number</label>
           <div className="p-3 bg-[#f7f7ee] rounded text-gray-800 flex items-center">
@@ -547,7 +549,7 @@ const ProfilePage = () => {
             {userData?.phoneNumber || 'Not provided'}
           </div>
         </div>
-        
+
         <div>
           <label className="block text-gray-600 mb-2 text-sm font-medium">Address</label>
           <div className="p-3 bg-[#f7f7ee] rounded text-gray-800 flex items-center">
@@ -555,7 +557,7 @@ const ProfilePage = () => {
             {userData?.address || 'Not provided'}
           </div>
         </div>
-        
+
         <div>
           <label className="block text-gray-600 mb-2 text-sm font-medium">Gender</label>
           <div className="p-3 bg-[#f7f7ee] rounded text-gray-800">
@@ -567,13 +569,13 @@ const ProfilePage = () => {
           <h3 className="text-lg font-semibold mb-4 text-gray-800">Account Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-orange-50 p-4 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
-                 onClick={() => handleTabChange("MyOrders")}>
+              onClick={() => handleTabChange("MyOrders")}>
               <div className="text-2xl font-bold text-orange-500">{userData?.totalOrders || 0}</div>
               <div className="text-sm text-gray-600">Total Orders</div>
               <div className="text-xs text-orange-600 mt-1">Click to view →</div>
             </div>
             <div className="bg-green-50 p-4 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
-                 onClick={() => handleTabChange("MyCoupons")}>
+              onClick={() => handleTabChange("MyCoupons")}>
               <div className="text-2xl font-bold text-green-500">{userData?.activeCoupons || 0}</div>
               <div className="text-sm text-gray-600">Active Coupons</div>
               <div className="text-xs text-green-600 mt-1">Click to view →</div>
@@ -608,7 +610,7 @@ const ProfilePage = () => {
       {ordersError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600">⚠️ {ordersError}</p>
-          <button 
+          <button
             onClick={fetchUserOrders}
             className="mt-2 text-red-600 underline hover:text-red-800"
           >
@@ -627,7 +629,7 @@ const ProfilePage = () => {
           <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-semibold text-gray-600 mb-2">No orders found</h3>
           <p className="text-gray-500">Your order history will appear here once you make your first purchase</p>
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
@@ -654,7 +656,7 @@ const ProfilePage = () => {
                       <p className="text-sm text-gray-600">Placed on {orderDate}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-4">
                     <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${statusDisplay.bgColor}`}>
                       <StatusIcon className={`w-4 h-4 ${statusDisplay.color}`} />
@@ -675,10 +677,7 @@ const ProfilePage = () => {
                     <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
                     <p className="text-sm text-gray-800">{order.shippingAddress}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Items</p>
-                    <p className="text-sm text-gray-800">{order.itemsCount} item(s)</p>
-                  </div>
+                  
                 </div>
 
                 {order.trackingNumber && (
@@ -689,7 +688,7 @@ const ProfilePage = () => {
                 )}
 
                 <div className="mt-4 flex justify-end space-x-3">
-                  <button 
+                  <button
                     onClick={() => handleViewOrderDetails(order.id)}
                     className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
@@ -719,7 +718,7 @@ const ProfilePage = () => {
         <Gift className="w-16 h-16 mx-auto text-gray-300 mb-4" />
         <h3 className="text-lg font-semibold text-gray-600 mb-2">No active coupons</h3>
         <p className="text-gray-500">Your available coupons will appear here</p>
-        <button 
+        <button
           onClick={() => navigate('/')}
           className="mt-4 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
         >
@@ -746,43 +745,43 @@ const ProfilePage = () => {
   const MyWishlistComponent = () => (
     <div className='bg-white'>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 border-b border-gray-300 gap-4 sm:gap-0">
-  {/* Left side: Title and item count */}
-  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-    <h2 className="text-xl sm:text-2xl font-semibold flex items-center gap-2">
-      <Heart className="w-6 h-6 text-red-500 fill-red-500" />
-      My Wishlist
-    </h2>
-    <p className="text-sm text-gray-600">
-      {itemCount} {itemCount === 1 ? "item" : "items"}
-    </p>
-  </div>
+        {/* Left side: Title and item count */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <h2 className="text-xl sm:text-2xl font-semibold flex items-center gap-2">
+            <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+            My Wishlist
+          </h2>
+          <p className="text-sm text-gray-600">
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+          </p>
+        </div>
 
-  {/* Right side: Buttons */}
-  {wishlistItems.length > 0 && (
-    <div className="flex flex-wrap gap-2">
-      <button
-        onClick={fetchWishlistItems}
-        className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-      >
-        <RefreshCw className="w-4 h-4" />
-        Refresh
-      </button>
-      <button
-        onClick={clearWishlist}
-        className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
-      >
-        <Trash2 className="w-4 h-4" />
-        Clear All
-      </button>
-    </div>
-  )}
-</div>
+        {/* Right side: Buttons */}
+        {wishlistItems.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={fetchWishlistItems}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button
+              onClick={clearWishlist}
+              className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All
+            </button>
+          </div>
+        )}
+      </div>
 
 
       {wishlistError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600">⚠️ {wishlistError}</p>
-          <button 
+          <button
             onClick={fetchWishlistItems}
             className="mt-2 text-red-600 underline hover:text-red-800"
           >
@@ -851,8 +850,8 @@ const ProfilePage = () => {
                     onClick={() => removeFromWishlist(item.id)}
                     disabled={isProcessing}
                     className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${isProcessing
-                        ? 'bg-gray-200 opacity-50 cursor-not-allowed'
-                        : 'bg-white hover:bg-gray-100 shadow-sm'
+                      ? 'bg-gray-200 opacity-50 cursor-not-allowed'
+                      : 'bg-white hover:bg-gray-100 shadow-sm'
                       }`}
                     title="Remove from wishlist"
                   >
@@ -872,8 +871,8 @@ const ProfilePage = () => {
                       <Star
                         key={index}
                         className={`w-4 h-4 ${index < (product.rating || 4)
-                            ? "text-yellow-400 fill-yellow-400"
-                            : "text-gray-300"
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-gray-300"
                           }`}
                       />
                     ))}
@@ -924,8 +923,8 @@ const ProfilePage = () => {
                         onClick={() => moveToCart(item.id, product)}
                         disabled={isProcessing}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${isProcessing
-                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                            : "bg-orange-500 hover:bg-orange-600 text-white"
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-orange-500 hover:bg-orange-600 text-white"
                           }`}
                       >
                         <ShoppingCart className="w-4 h-4" />
@@ -966,7 +965,7 @@ const ProfilePage = () => {
         <div className="bg-white p-8 rounded-xl shadow-lg text-center">
           <h2 className="text-2xl font-semibold mb-4">Authentication Required</h2>
           <p className="text-gray-600 mb-6">Please log in to access your profile</p>
-          <button 
+          <button
             onClick={() => navigate('/user')}
             className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
@@ -998,13 +997,13 @@ const ProfilePage = () => {
           <h2 className="text-2xl font-semibold mb-4 text-red-600">Error Loading Profile</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="space-x-4">
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
             >
               Retry
             </button>
-            <button 
+            <button
               onClick={handleLogout}
               className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
             >
@@ -1016,19 +1015,19 @@ const ProfilePage = () => {
     );
   }
 
-  const userInitials = userData ? 
-    `${userData.firstName?.charAt(0) || ''}${userData.lastName?.charAt(0) || ''}` : 
+  const userInitials = userData ?
+    `${userData.firstName?.charAt(0) || ''}${userData.lastName?.charAt(0) || ''}` :
     'U';
 
-  const userName = userData ? 
-    `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User' : 
+  const userName = userData ?
+    `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User' :
     'User';
 
   return (
     <div className="bg-[#f7f7ee] min-h-screen p-4">
       <div className="max-w-7xl mx-auto bg-white rounded-xl">
         <div className="flex flex-col md:flex-row">
-          
+
           {/* Sidebar - ONLY visible on desktop */}
           <div className="hidden md:block md:w-1/4 bg-[#f7f7ee] p-8 m-2 rounded-xl">
             <div className="flex flex-col h-full">
@@ -1038,7 +1037,7 @@ const ProfilePage = () => {
                 </div>
                 <span className="font-semibold">{userName}</span>
               </div>
-              
+
               {/* Navigation Menu */}
               <nav>
                 <ul className="space-y-6">
@@ -1046,13 +1045,12 @@ const ProfilePage = () => {
                     const IconComponent = item.icon;
                     return (
                       <li key={item.key}>
-                        <button 
+                        <button
                           onClick={() => handleTabChange(item.key)}
-                          className={`w-full text-left flex items-center space-x-3 pb-1 border-b ${
-                            activeTab === item.key
+                          className={`w-full text-left flex items-center space-x-3 pb-1 border-b ${activeTab === item.key
                               ? "text-orange-500 border-orange-500"
                               : "text-gray-400 border-gray-300 hover:text-orange-500"
-                          }`}
+                            }`}
                         >
                           <IconComponent className="w-4 h-4" />
                           <span>{item.label}</span>
@@ -1062,10 +1060,10 @@ const ProfilePage = () => {
                   })}
                 </ul>
               </nav>
-              
+
               {/* Logout Button */}
               <div className="mt-auto p-1">
-                <button 
+                <button
                   onClick={handleLogout}
                   className="w-full py-2 bg-white border border-gray-200 rounded-xl text-gray-800 hover:bg-gray-50 mt-12 flex items-center justify-center gap-2"
                 >
@@ -1075,7 +1073,7 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Main Content */}
           <div className="md:w-3/4 p-4 lg:p-20">
             {/* Mobile Header - Only visible on small screens */}
@@ -1086,7 +1084,7 @@ const ProfilePage = () => {
                 </div>
                 <span className="font-semibold">{userName}</span>
               </div>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="text-gray-600 bg-[#f7f7ee] p-1 rounded-md flex items-center gap-1"
               >
@@ -1094,18 +1092,17 @@ const ProfilePage = () => {
                 Logout
               </button>
             </div>
-            
+
             {/* Mobile Navigation - Only visible on small screens */}
             <div className="md:hidden flex items-center space-x-5 text-sm mb-6 overflow-x-auto pb-2 border-b">
               {menuItems.map((item) => (
                 <button
                   key={item.key}
                   onClick={() => handleTabChange(item.key)}
-                  className={`whitespace-nowrap pb-2 flex items-center space-x-1 ${
-                    activeTab === item.key
+                  className={`whitespace-nowrap pb-2 flex items-center space-x-1 ${activeTab === item.key
                       ? "text-orange-500 border-b-2 border-orange-500"
                       : "text-gray-600"
-                  }`}
+                    }`}
                 >
                   <item.icon className="w-4 h-4" />
                   <span>{item.label}</span>
@@ -1113,18 +1110,24 @@ const ProfilePage = () => {
               ))}
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </div>
-            
+
             {/* Dynamic Content Based on Active Tab */}
             {error && userData && (
               <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-yellow-600">⚠️ Some data may not be up to date: {error}</p>
               </div>
             )}
-            
+
             {renderActiveComponent()}
           </div>
         </div>
       </div>
+       {/* Order Details Modal */}
+       <OrderDetailsModal 
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        orderId={selectedOrderId}
+      />
     </div>
   );
 };

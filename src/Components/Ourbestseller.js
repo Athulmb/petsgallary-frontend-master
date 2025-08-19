@@ -60,6 +60,31 @@ const ProductCard = ({ product, onClick }) => {
     }
   };
 
+  // Function to dispatch wishlist update event with action type and count
+  const dispatchWishlistEvent = (action, isInWishlist) => {
+    // Calculate the count change based on action
+    const countChange = action === 'added' ? 1 : -1;
+    
+    window.dispatchEvent(new CustomEvent('wishlistUpdated', {
+      detail: {
+        action: action, // 'added' or 'removed'
+        productId: product.id,
+        productName: product.name,
+        countChange: countChange, // +1 for add, -1 for remove
+        isInWishlist: isInWishlist // current wishlist status
+      }
+    }));
+
+    // Also dispatch a more specific event for count updates
+    window.dispatchEvent(new CustomEvent('wishlistCountChanged', {
+      detail: {
+        change: countChange,
+        productId: product.id,
+        action: action
+      }
+    }));
+  };
+
   // Function to add product to wishlist
   const addToWishlist = async () => {
     try {
@@ -82,7 +107,8 @@ const ProductCard = ({ product, onClick }) => {
 
       if (response.data.success) {
         console.log("Product added to wishlist successfully:", response.data);
-        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+        // Dispatch event with 'added' action and updated state
+        dispatchWishlistEvent('added', true);
         return true;
       } else {
         throw new Error(response.data.message || 'Failed to add to wishlist');
@@ -130,6 +156,8 @@ const ProductCard = ({ product, onClick }) => {
 
       if (response.data.success) {
         console.log("Product removed from wishlist successfully:", response.data);
+        // Dispatch event with 'removed' action and updated state
+        dispatchWishlistEvent('removed', false);
         return true;
       } else {
         throw new Error(response.data.message || 'Failed to remove from wishlist');
@@ -181,21 +209,34 @@ const ProductCard = ({ product, onClick }) => {
       setIsWishlistLoading(true);
 
       let success = false;
+      const previousWishlistState = isInWishlist;
+      
       if (isInWishlist) {
         // Remove from wishlist
         success = await removeFromWishlist();
         if (success) {
           setIsInWishlist(false);
+          console.log(`Wishlist toggle: Removed product ${product.id}, count should decrease by 1`);
         }
       } else {
         // Add to wishlist
         success = await addToWishlist();
         if (success) {
           setIsInWishlist(true);
+          console.log(`Wishlist toggle: Added product ${product.id}, count should increase by 1`);
         }
       }
+
+      // If the operation failed, revert the state
+      if (!success) {
+        setIsInWishlist(previousWishlistState);
+        console.log("Wishlist operation failed, reverting state");
+      }
+
     } catch (error) {
       console.error("Failed to toggle wishlist:", error);
+      // Revert state on error
+      setIsInWishlist(isInWishlist);
     } finally {
       setIsWishlistLoading(false);
     }

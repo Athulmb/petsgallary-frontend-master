@@ -14,6 +14,7 @@ const ProductCard = ({ product }) => {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+  const [wishlistSuccess, setWishlistSuccess] = useState(false);
 
    // Calculate discount percentage
    const calculateDiscountPercentage = () => {
@@ -62,6 +63,29 @@ const ProductCard = ({ product }) => {
       console.error("Error checking wishlist status:", error);
     }
   };
+  const dispatchWishlistEvent = (action, isInWishlist) => {
+    // Calculate the count change based on action
+    const countChange = action === 'added' ? 1 : -1;
+    
+    window.dispatchEvent(new CustomEvent('wishlistUpdated', {
+      detail: {
+        action: action, // 'added' or 'removed'
+        productId: product.id,
+        productName: product.name,
+        countChange: countChange, // +1 for add, -1 for remove
+        isInWishlist: isInWishlist // current wishlist status
+      }
+    }));
+
+    // Also dispatch a more specific event for count updates
+    window.dispatchEvent(new CustomEvent('wishlistCountChanged', {
+      detail: {
+        change: countChange,
+        productId: product.id,
+        action: action
+      }
+    }));
+  };
 
   // Function to add product to wishlist
   const addToWishlist = async () => {
@@ -84,7 +108,9 @@ const ProductCard = ({ product }) => {
       });
 
       if (response.data.success) {
-        window.dispatchEvent(new CustomEvent('wishlistUpdated'));
+        console.log("Product added to wishlist successfully:", response.data);
+        // Dispatch event with 'added' action and updated state
+        dispatchWishlistEvent('added', true);
         return true;
       } else {
         throw new Error(response.data.message || 'Failed to add to wishlist');
@@ -132,6 +158,8 @@ const ProductCard = ({ product }) => {
 
       if (response.data.success) {
         console.log("Product removed from wishlist successfully:", response.data);
+        // Dispatch event with 'removed' action and updated state
+        dispatchWishlistEvent('removed', false);
         return true;
       } else {
         throw new Error(response.data.message || 'Failed to remove from wishlist');
@@ -152,6 +180,7 @@ const ProductCard = ({ product }) => {
     }
   };
 
+
   // Handle authentication errors
   const handleAuthError = () => {
     console.error("Authentication failed - token may be expired");
@@ -162,7 +191,7 @@ const ProductCard = ({ product }) => {
     alert("Session expired. Please login again.");
   };
 
-  // Function to toggle wishlist (add/remove)
+  // Function to toggle wishlist (add/remove) with 2-second loading and wave effect
   const toggleWishlist = async (e) => {
     // Prevent event bubbling to avoid navigation
     e.stopPropagation();
@@ -183,21 +212,34 @@ const ProductCard = ({ product }) => {
       setIsWishlistLoading(true);
 
       let success = false;
+      const previousWishlistState = isInWishlist;
+      
       if (isInWishlist) {
         // Remove from wishlist
         success = await removeFromWishlist();
         if (success) {
           setIsInWishlist(false);
+          console.log(`Wishlist toggle: Removed product ${product.id}, count should decrease by 1`);
         }
       } else {
         // Add to wishlist
         success = await addToWishlist();
         if (success) {
           setIsInWishlist(true);
+          console.log(`Wishlist toggle: Added product ${product.id}, count should increase by 1`);
         }
       }
+
+      // If the operation failed, revert the state
+      if (!success) {
+        setIsInWishlist(previousWishlistState);
+        console.log("Wishlist operation failed, reverting state");
+      }
+
     } catch (error) {
       console.error("Failed to toggle wishlist:", error);
+      // Revert state on error
+      setIsInWishlist(isInWishlist);
     } finally {
       setIsWishlistLoading(false);
     }
@@ -241,20 +283,28 @@ const ProductCard = ({ product }) => {
       console.error("Product ID is missing");
       return;
     }
-
+  
     setIsAddingToCart(true);
-
+  
     try {
+      // Start the 2-second timer
+      const startTime = Date.now();
+      const minimumLoadingTime = 2000; // 2 seconds in milliseconds
+  
       // Get token from localStorage
       const token = getAuthToken();
       
       if (!token) {
         console.error("No authentication token found");
         alert("Please login to add items to cart");
+        // Still wait for minimum loading time even on error
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minimumLoadingTime - elapsedTime);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
         setIsAddingToCart(false);
         return;
       }
-
+  
       // Check if product already exists in cart
       const existingCartItem = await checkExistingCartItem(product.id);
       const quantity = 1; // Default quantity for product card
@@ -274,9 +324,9 @@ const ProductCard = ({ product }) => {
             'Content-Type': 'application/json',
           }
         });
-
+  
         console.log("Cart item updated successfully:", updateResponse.data);
-
+  
         // Update Redux store with new quantity
         dispatch(
           addItem({
@@ -290,25 +340,25 @@ const ProductCard = ({ product }) => {
             quantity: quantity, // This will be added to existing quantity in Redux
           })
         );
-
+  
       } else {
         // Product doesn't exist, add new item
         const payload = {
           product_id: parseInt(product.id),
           quantity: parseInt(quantity),
         };
-
+  
         console.log("Adding new product to cart. Payload:", payload);
-
+  
         const response = await api.post("/cart/add", payload, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           }
         });
-
+  
         console.log("Product added to cart successfully:", response.data);
-
+  
         // Add to Redux store
         dispatch(
           addItem({
@@ -323,12 +373,28 @@ const ProductCard = ({ product }) => {
           })
         );
       }
-
+  
+      // Calculate remaining time to ensure minimum 2-second loading
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minimumLoadingTime - elapsedTime);
+      
+      // Wait for remaining time if needed
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+  
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
       
     } catch (error) {
       console.error("Failed to sync cart:", error);
+      
+      // Still ensure minimum loading time even on error
+      const elapsedTime = Date.now() - Date.now();
+      const remainingTime = Math.max(0, 2000 - elapsedTime);
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
       
       // Log the full error response for debugging
       if (error.response) {
@@ -368,16 +434,29 @@ const ProductCard = ({ product }) => {
     >
       <div className="relative mb-4 flex justify-center items-center min-h-[200px]">
         <button 
-          className="absolute right-0 top-0 z-10 p-1 hover:bg-gray-100 rounded-full transition-colors"
+          className={`absolute right-0 top-0 z-10 p-1 rounded-full transition-all duration-200 ${
+            isWishlistLoading 
+              ? "bg-pink-100 animate-pulse" 
+              : wishlistSuccess
+              ? "bg-green-100"
+              : "hover:bg-gray-100"
+          } ${
+            isWishlistLoading ? "wishlist-wave" : ""
+          }`}
           onClick={toggleWishlist}
           disabled={isWishlistLoading}
+          style={{
+            animation: isWishlistLoading ? 'wishlistWave 2s ease-in-out infinite' : 'none'
+          }}
         >
           <Heart 
-            className={`w-6 h-6 transition-colors ${
-              isInWishlist 
+            className={`w-6 h-6 transition-all duration-200 ${
+              wishlistSuccess
+                ? "text-green-500 fill-green-500 scale-110"
+                : isInWishlist 
                 ? "text-red-500 fill-red-500" 
                 : isWishlistLoading 
-                ? "text-gray-300" 
+                ? "text-pink-400 fill-pink-200" 
                 : "text-gray-400 hover:text-red-400"
             }`} 
           />
@@ -430,6 +509,61 @@ const ProductCard = ({ product }) => {
       >
         {addedToCart ? "Added to Cart!" : isAddingToCart ? "Adding..." : "Add To Cart"}
       </button>
+
+      {/* Add CSS for wishlist wave animation */}
+      <style jsx>{`
+        @keyframes wishlistWave {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.4);
+          }
+          25% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(236, 72, 153, 0.3);
+          }
+          50% {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.2);
+          }
+          75% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 16px rgba(236, 72, 153, 0.1);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 20px rgba(236, 72, 153, 0);
+          }
+        }
+
+        .wishlist-wave {
+          position: relative;
+          overflow: visible;
+        }
+
+        .wishlist-wave::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100%;
+          height: 100%;
+          background: rgba(236, 72, 153, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          animation: wishlistRipple 2s ease-out infinite;
+        }
+
+        @keyframes wishlistRipple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 };
@@ -801,6 +935,62 @@ const StorePage = () => {
 
   return (
     <div className="px-4 md:px-10 lg:px-20 py-10 bg-[#F5F6ED] min-h-screen">
+      {/* Add global CSS for wishlist animations */}
+      <style jsx global>{`
+        @keyframes wishlistWave {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.4);
+          }
+          25% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(236, 72, 153, 0.3);
+          }
+          50% {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.2);
+          }
+          75% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 16px rgba(236, 72, 153, 0.1);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 20px rgba(236, 72, 153, 0);
+          }
+        }
+
+        .wishlist-wave {
+          position: relative;
+          overflow: visible;
+        }
+
+        .wishlist-wave::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100%;
+          height: 100%;
+          background: rgba(236, 72, 153, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          animation: wishlistRipple 2s ease-out infinite;
+          pointer-events: none;
+        }
+
+        @keyframes wishlistRipple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl md:text-4xl font-bold">{getPageTitle()}</h1>
 
@@ -830,15 +1020,7 @@ const StorePage = () => {
         </button>
       </div>
 
-      {/* Category filter indicator */}
-      {location.state?.categoryName && (
-        <div className="mb-4 p-3 bg-orange-100 rounded-lg">
-          <p className="text-orange-800 text-sm">
-            Showing products for: <span className="font-semibold">{location.state.categoryName}</span>
-          </p>
-        </div>
-      )}
-
+     
       {/* Active filters display */}
       {(searchQuery || selectedProductType.length > 0 || selectedPetTypes.length > 0 || selectedRange) && (
         <div className="mb-6 p-4 bg-white rounded-lg shadow-sm">

@@ -86,8 +86,10 @@ export const ContactPage = () => {
                         </h1>
                     </div>
                     <p className="text-gray-600 mt-4 lg:mt-auto">
-                        Lorem ipsum dolor sit amet consectetur. Urna luctus amet habitant sit ac.
-                        Risus consectetur sit etiam pellentesque turpis ornare.
+                    !
+
+🐶 Bark, 🐱 Meow… We're Only a Message Away!
+Your Furry Friends Are a 🐾 Away — Contact Us Today!
                     </p>
                 </div>
 
