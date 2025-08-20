@@ -14,11 +14,9 @@ export default function GroomingServices() {
         </h2>
         <div className="bg-white p-4 rounded-xl shadow-md">
           {[
-            "Pet Medical Administration",
             "Overnight Pet Care",
             "Puppy Day Care",
             "Training Through Goodpup",
-            "Pets House Sitting",
           ].map((service, index) => (
             <div
               key={index}

@@ -446,7 +446,7 @@ export const BookingPage = () => {
                                 <div className="flex items-center">
                                     <span className="text-2xl mr-4">🛡️</span>
                                     <div>
-                                        <h4 className="font-semibold">Safe & Secure</h4>
+                                        <h4 className="font-semibold">Safe and Secure</h4>
                                         <p className="text-orange-100 text-sm">Highest safety standards for your pets</p>
                                     </div>
                                 </div>
@@ -462,16 +462,9 @@ export const BookingPage = () => {
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Monday - Friday</span>
-                                    <span className="font-medium text-gray-900">9:00 AM - 8:00 PM</span>
+                                    <span className="font-medium text-gray-900">10:00 AM - 11:30 PM</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Saturday</span>
-                                    <span className="font-medium text-gray-900">9:00 AM - 6:00 PM</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Sunday</span>
-                                    <span className="font-medium text-gray-900">10:00 AM - 4:00 PM</span>
-                                </div>
+                                
                             </div>
                         </div>
                     </div>
