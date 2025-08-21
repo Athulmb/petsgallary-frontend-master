@@ -283,6 +283,8 @@ export const BookingPage = () => {
                                                 <p>✓ Nail trimming</p>
                                                 <p>✓ Ear cleaning</p>
                                                 <p>✓ Basic styling</p>
+                                                <p>✓ Teeth cleaning</p>
+                                                <p>✓ Perfume spray</p>
                                             </div>
                                         </div>
 

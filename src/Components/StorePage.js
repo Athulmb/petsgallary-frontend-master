@@ -592,25 +592,6 @@ const StorePage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
-  // Helper function to calculate backend page from frontend page
-  const getFrontendToBackendPage = (frontendPage, totalBackendPages) => {
-    return totalBackendPages - frontendPage + 1;
-  };
-
-  // Helper function to calculate frontend total pages from backend data
-  const calculateFrontendTotalPages = (totalItems, perPage) => {
-    return Math.ceil(totalItems / perPage);
-  };
-
-  // Function to sort products by creation date (newest first) - additional sorting for consistency
-  const sortProductsByDate = (products) => {
-    return [...products].sort((a, b) => {
-      const dateA = new Date(a.created_at);
-      const dateB = new Date(b.created_at);
-      return dateB - dateA; // Descending order (newest first)
-    });
-  };
-
   // Check for category filter from navigation
   useEffect(() => {
     if (location.state?.filterByPetType) {
@@ -618,81 +599,33 @@ const StorePage = () => {
     }
   }, [location.state]);
 
-  // Initial load with reverse pagination and product filling
-  const fetchInitialData = async (frontendPage = 1) => {
+  // Initial load with normal pagination (first page = oldest products)
+  const fetchInitialData = async (page = 1) => {
     try {
       setLoading(true);
 
-      // First, get price range and total pages info
+      // First, get price range info
       const priceRes = await api.get('/get-all-active-products');
       const min = priceRes.data.min_price ?? 0;
       const max = priceRes.data.max_price ?? 5000;
       setMinPrice(min);
       setMaxPrice(max);
 
-      // Get first page to determine total pages and items
-      const initialRes = await api.get('/get-all-active-products', {
-        params: { page: 1 }
-      });
-      
-      const initialPaginated = initialRes.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
-      const totalBackendPages = initialPaginated.last_page || 1;
-      const totalItems = initialPaginated.total || 0;
-      const perPage = initialPaginated.per_page || 12;
-      
-      // Calculate frontend total pages
-      const frontendTotalPages = calculateFrontendTotalPages(totalItems, perPage);
-      setTotalPages(frontendTotalPages);
-      setTotalProducts(totalItems);
-
-      // Calculate which backend page to fetch for the requested frontend page
-      const backendPage = getFrontendToBackendPage(frontendPage, totalBackendPages);
-
-      console.log(`🔄 Frontend page ${frontendPage} -> Backend page ${backendPage} (Total backend pages: ${totalBackendPages})`);
-
-      // Fetch products from the calculated backend page
+      // Fetch products for the requested page (normal pagination - first page = first added)
       const productsRes = await api.get('/get-all-active-products', {
-        params: { page: Math.max(1, Math.min(backendPage, totalBackendPages)) }
+        params: { page: page }
       });
 
-      const paginated = productsRes.data.products || { data: [], current_page: 1, last_page: 1 };
-      let allProducts = [...(paginated.data || [])];
+      const paginated = productsRes.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
+      const allProducts = [...(paginated.data || [])];
 
-      console.log(`📦 Initial fetch: ${allProducts.length} products from backend page ${backendPage}`);
+      console.log(`📦 Initial fetch: ${allProducts.length} products from page ${page}`);
 
-      // If we have less than 12 products and there are more pages to fetch
-      if (allProducts.length < perPage && backendPage > 1) {
-        const productsNeeded = perPage - allProducts.length;
-        console.log(`📦 Need ${productsNeeded} more products, fetching from next backend page...`);
-
-        try {
-          // Fetch from the next backend page (which is backendPage - 1 in reverse order)
-          const nextBackendPage = backendPage - 1;
-          const additionalRes = await api.get('/get-all-active-products', {
-            params: { page: nextBackendPage }
-          });
-
-          const additionalPaginated = additionalRes.data.products || { data: [] };
-          const additionalProducts = additionalPaginated.data || [];
-          
-          console.log(`📦 Additional fetch: ${additionalProducts.length} products from backend page ${nextBackendPage}`);
-          
-          // Take only the number of products we need
-          const productsToAdd = additionalProducts.slice(0, productsNeeded);
-          allProducts = [...allProducts, ...productsToAdd];
-          
-          console.log(`📦 Total products after filling: ${allProducts.length}`);
-        } catch (additionalError) {
-          console.error("Error fetching additional products:", additionalError);
-        }
-      }
-
-      // Sort products by creation date (newest first) for additional consistency
-      const sortedProducts = sortProductsByDate(allProducts);
-
-      setProducts(sortedProducts);
-      setFilteredProducts(sortedProducts);
-      setCurrentPage(frontendPage);
+      setProducts(allProducts);
+      setFilteredProducts(allProducts);
+      setCurrentPage(page);
+      setTotalPages(paginated.last_page || 1);
+      setTotalProducts(paginated.total || 0);
       
     } catch (error) {
       console.error("Initial load error:", error);
@@ -716,17 +649,17 @@ const StorePage = () => {
     }
   }, [location.state?.filterByPetType]);
 
-  // Fetch filtered products with reverse pagination and product filling
+  // Fetch filtered products with normal pagination
   const fetchFilteredProducts = async (
     search = "",
     productTypes = [],
     petTypes = [],
     priceRange = null,
-    frontendPage = 1
+    page = 1
   ) => {
     setLoading(true);
     try {
-      const params = { page: 1 }; // Start with page 1 to get total pages
+      const params = { page: page };
 
       // Only add parameters if they have values
       if (search.trim() !== "") params.search = search;
@@ -739,74 +672,21 @@ const StorePage = () => {
 
       console.log("🔍 Sending filters to backend:", params);
 
-      // First get total pages for filtered results
-      const initialResponse = await api.get('/get-filtered-products', {
+      // Fetch filtered products
+      const response = await api.get('/get-filtered-products', {
         params,
         paramsSerializer: params => qs.stringify(params, { arrayFormat: "brackets" }),
       });
 
-      const initialPaginated = initialResponse.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
-      const totalBackendPages = initialPaginated.last_page || 1;
-      const totalItems = initialPaginated.total || 0;
-      const perPage = initialPaginated.per_page || 12;
+      const paginated = response.data.products || { data: [], current_page: 1, last_page: 1, total: 0, per_page: 12 };
+      const allProducts = [...(paginated.data || [])];
 
-      // Calculate frontend total pages
-      const frontendTotalPages = calculateFrontendTotalPages(totalItems, perPage);
-      setTotalPages(frontendTotalPages);
-      setTotalProducts(totalItems);
+      console.log(`📦 Filtered fetch: ${allProducts.length} products from page ${page}`);
 
-      // Calculate which backend page to fetch for the requested frontend page
-      const backendPage = getFrontendToBackendPage(frontendPage, totalBackendPages);
-
-      console.log(`🔄 Filtered - Frontend page ${frontendPage} -> Backend page ${backendPage} (Total backend pages: ${totalBackendPages})`);
-
-      // Now fetch the actual page we want (reversed)
-      const finalParams = { ...params, page: Math.max(1, Math.min(backendPage, totalBackendPages)) };
-      const response = await api.get('/get-filtered-products', {
-        params: finalParams,
-        paramsSerializer: params => qs.stringify(params, { arrayFormat: "brackets" }),
-      });
-
-      const paginated = response.data.products || { data: [], current_page: 1, last_page: 1 };
-      let allProducts = [...(paginated.data || [])];
-
-      console.log(`📦 Filtered initial fetch: ${allProducts.length} products from backend page ${backendPage}`);
-
-      // If we have less than 12 products and there are more pages to fetch
-      if (allProducts.length < perPage && backendPage > 1) {
-        const productsNeeded = perPage - allProducts.length;
-        console.log(`📦 Filtered: Need ${productsNeeded} more products, fetching from next backend page...`);
-
-        try {
-          // Fetch from the next backend page (which is backendPage - 1 in reverse order)
-          const nextBackendPage = backendPage - 1;
-          const additionalParams = { ...params, page: nextBackendPage };
-          
-          const additionalResponse = await api.get('/get-filtered-products', {
-            params: additionalParams,
-            paramsSerializer: params => qs.stringify(params, { arrayFormat: "brackets" }),
-          });
-
-          const additionalPaginated = additionalResponse.data.products || { data: [] };
-          const additionalProducts = additionalPaginated.data || [];
-          
-          console.log(`📦 Filtered additional fetch: ${additionalProducts.length} products from backend page ${nextBackendPage}`);
-          
-          // Take only the number of products we need
-          const productsToAdd = additionalProducts.slice(0, productsNeeded);
-          allProducts = [...allProducts, ...productsToAdd];
-          
-          console.log(`📦 Filtered total products after filling: ${allProducts.length}`);
-        } catch (additionalError) {
-          console.error("Error fetching additional filtered products:", additionalError);
-        }
-      }
-      
-      // Sort filtered products by creation date (newest first)
-      const sortedProducts = sortProductsByDate(allProducts);
-      
-      setFilteredProducts(sortedProducts);
-      setCurrentPage(frontendPage);
+      setFilteredProducts(allProducts);
+      setCurrentPage(page);
+      setTotalPages(paginated.last_page || 1);
+      setTotalProducts(paginated.total || 0);
       
     } catch (error) {
       console.error("Filter fetch error:", error);
@@ -830,7 +710,7 @@ const StorePage = () => {
     setSelectedPetTypes(filters.petTypes);
     setCurrentPage(1);
 
-    // Fetch filtered products starting from frontend page 1
+    // Fetch filtered products starting from page 1
     fetchFilteredProducts(
       searchQuery,
       filters.productTypes,
@@ -854,10 +734,10 @@ const StorePage = () => {
   };
 
   // Handle pagination
-  const handlePageChange = (newFrontendPage) => {
-    if (newFrontendPage < 1 || newFrontendPage > totalPages) return;
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
 
-    console.log(`📄 Changing to frontend page ${newFrontendPage}`);
+    console.log(`📄 Changing to page ${newPage}`);
 
     // Check if any filters are active
     const hasActiveFilters =
@@ -872,10 +752,10 @@ const StorePage = () => {
         selectedProductType,
         selectedPetTypes,
         selectedRange,
-        newFrontendPage
+        newPage
       );
     } else {
-      fetchInitialData(newFrontendPage);
+      fetchInitialData(newPage);
     }
   };
 
@@ -1095,12 +975,11 @@ const StorePage = () => {
                 <p className="text-gray-600">
                   Showing {filteredProducts.length} of {totalProducts} products 
                   {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
-                  <span className="text-sm text-orange-600 ml-2">(Newest products first)</span>
                 </p>
               </div>
 
               {/* Product grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4   gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map(product => (
                   <ProductCard key={product.id} product={product} />
                 ))}
