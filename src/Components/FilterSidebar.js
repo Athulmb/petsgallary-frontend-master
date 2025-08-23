@@ -61,15 +61,15 @@ const FilterSidebar = ({
     { label: "Birds", value: "BIRD" },
     { label: "Fish", value: "FISH" },
   ];
-  const petCounts = [125, 111, 75, 50];
+  const petCounts = [526, 435, 50, 61];
 
+  // Product types matching database values
   const productTypes = [
     { label: "Food", value: ["Food"] },
     { label: "Accessories", value: ["cage", "cat litter box", "scratcher"] }, // multiple internal values
     { label: "Collar", value: ["collar"] },
     { label: "Toys", value: ["Toy"] },
   ];
-
 
   const handlePetTypeToggle = (value) => {
     setSelectedPetTypes((prev) =>
@@ -82,7 +82,6 @@ const FilterSidebar = ({
       prev.includes(label) ? prev.filter((t) => t !== label) : [...prev, label]
     );
   };
-
 
   const handleReset = () => {
     setSelectedRange(null);
@@ -135,16 +134,15 @@ const FilterSidebar = ({
             key={label}
             type="button"
             onClick={() => handleProductTypeToggle(label)}
-            className={`px-2 py-1.5 rounded-full border text-xs w-full whitespace-nowrap text-ellipsis ${selectedProductType.includes(label)
+            className={`px-3 py-2 rounded-full border text-sm w-full text-left ${selectedProductType.includes(label)
                 ? "bg-orange-400 text-white border-orange-400"
-                : "text-gray-600 border-gray-300"
+                : "text-gray-600 border-gray-300 hover:border-orange-200 hover:bg-orange-50"
               }`}
           >
             {label}
           </button>
         ))}
       </div>
-
 
       {/* Price Range */}
       <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Price</h2>
@@ -154,7 +152,7 @@ const FilterSidebar = ({
             key={range.label}
             className={`flex items-center justify-between px-4 py-2 rounded-full border cursor-pointer ${selectedRange?.label === range.label
               ? "bg-orange-400 text-white border-orange-400"
-              : "text-gray-600 border-gray-300"
+              : "text-gray-600 border-gray-300 hover:border-orange-200 hover:bg-orange-50"
               }`}
           >
             <input
@@ -176,14 +174,14 @@ const FilterSidebar = ({
       >
         Reset
       </button>
+      
       {/* OK Button for Mobile */}
       <button
-        className="lg:hidden xl:hidden mt-4 w-full bg-orange-400 text-white py-2 rounded-full"
+        className="lg:hidden xl:hidden mt-4 w-full bg-orange-400 text-white py-2 rounded-full hover:bg-orange-500 transition-colors"
         onClick={onClose}
       >
         OK
       </button>
-
     </aside>
   );
 };

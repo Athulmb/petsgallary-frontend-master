@@ -15,9 +15,14 @@ const ProductCard = ({ product }) => {
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [wishlistSuccess, setWishlistSuccess] = useState(false);
+  
+  // Image loading state
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageSrc, setImageSrc] = useState('');
 
-   // Calculate discount percentage
-   const calculateDiscountPercentage = () => {
+  // Calculate discount percentage
+  const calculateDiscountPercentage = () => {
     if (product.offer_price && product.price && product.offer_price < product.price) {
       const discount = ((product.price - product.offer_price) / product.price) * 100;
       return Math.round(discount);
@@ -26,6 +31,31 @@ const ProductCard = ({ product }) => {
   };
 
   const discountPercentage = calculateDiscountPercentage();
+
+  // Image source resolution with better fallback handling
+  useEffect(() => {
+    const resolveImageSrc = () => {
+      // Try multiple image source possibilities
+      const possibleSources = [
+        product.images?.[0]?.image_url,
+        product.image_url,
+        product.image,
+        product.images?.[0]?.url,
+        product.images?.[0]?.src
+      ].filter(Boolean); // Remove null/undefined values
+
+      console.log(`Product ${product.id} - Available image sources:`, possibleSources);
+
+      if (possibleSources.length > 0) {
+        setImageSrc(possibleSources[0]);
+      } else {
+        setImageSrc('/images/placeholder.png');
+        console.warn(`Product ${product.id} - No image sources found, using placeholder`);
+      }
+    };
+
+    resolveImageSrc();
+  }, [product]);
 
   // Check if product is in wishlist when component mounts
   useEffect(() => {
@@ -63,6 +93,7 @@ const ProductCard = ({ product }) => {
       console.error("Error checking wishlist status:", error);
     }
   };
+
   const dispatchWishlistEvent = (action, isInWishlist) => {
     // Calculate the count change based on action
     const countChange = action === 'added' ? 1 : -1;
@@ -86,6 +117,13 @@ const ProductCard = ({ product }) => {
       }
     }));
   };
+
+  const [petCounts, setPetCounts] = useState({
+    CAT: 0,
+    DOG: 0,
+    BIRD: 0,
+    FISH: 0
+  });
 
   // Function to add product to wishlist
   const addToWishlist = async () => {
@@ -179,7 +217,6 @@ const ProductCard = ({ product }) => {
       return false;
     }
   };
-
 
   // Handle authentication errors
   const handleAuthError = () => {
@@ -333,7 +370,7 @@ const ProductCard = ({ product }) => {
             id: product.id,
             name: product.name,
             price: product.offer_price || product.price,
-            image: product.images?.[0]?.image_url || product.image_url || null,
+            image: imageSrc,
             description: product.description,
             about_product: product.about_product,
             benefits: product.benefits,
@@ -365,7 +402,7 @@ const ProductCard = ({ product }) => {
             id: product.id,
             name: product.name,
             price: product.offer_price || product.price,
-            image: product.images?.[0]?.image_url || product.image_url || null,
+            image: imageSrc,
             description: product.description,
             about_product: product.about_product,
             benefits: product.benefits,
@@ -427,14 +464,53 @@ const ProductCard = ({ product }) => {
     navigate(`/product/${product.id}`);
   };
 
+  // Handle image loading
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    setImageError(false);
+    console.log(`Image loaded successfully for product ${product.id}: ${imageSrc}`);
+  };
+
+  const handleImageError = () => {
+    console.error(`Image failed to load for product ${product.id}: ${imageSrc}`);
+    setImageError(true);
+    setImageLoaded(false);
+    // Try fallback to placeholder
+    if (imageSrc !== '/images/placeholder.png') {
+      setImageSrc('/images/placeholder.png');
+    }
+  };
+  const calculatePetCounts = (productList) => {
+    const counts = {
+      CAT: 0,
+      DOG: 0,
+      BIRD: 0,
+      FISH: 0
+    };
+  
+    productList.forEach(product => {
+      // Adjust these field names based on your actual database structure
+      const petType = product.pet_type || product.petType || product.animal_type || product.category || product.type;
+      
+      if (petType) {
+        const upperPetType = petType.toString().toUpperCase();
+        if (counts.hasOwnProperty(upperPetType)) {
+          counts[upperPetType]++;
+        }
+      }
+    });
+  
+    return counts;
+  };
+
   return (
     <div
       className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       onClick={handleCardClick}
     >
-      <div className="relative mb-4 flex justify-center items-center min-h-[200px]">
+      <div className="relative mb-4 flex justify-center items-center min-h-[200px] bg-gray-50 rounded-lg overflow-hidden">
         <button 
-          className={`absolute right-0 top-0 z-10 p-1 rounded-full transition-all duration-200 ${
+          className={`absolute right-2 top-2 z-10 p-1 rounded-full transition-all duration-200 ${
             isWishlistLoading 
               ? "bg-pink-100 animate-pulse" 
               : wishlistSuccess
@@ -463,14 +539,36 @@ const ProductCard = ({ product }) => {
         </button>
         
         {discountPercentage > 0 && (
-          <span className="absolute left-0 top-0 bg-orange-500 text-white text-sm px-3 py-1 rounded-full">
+          <span className="absolute left-2 top-2 bg-orange-500 text-white text-sm px-3 py-1 rounded-full z-10">
             {discountPercentage}% OFF
           </span>
         )}
+        
+        {/* Image with loading states */}
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400"></div>
+          </div>
+        )}
+        
+        {imageError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center mb-2">
+              <span className="text-2xl">📦</span>
+            </div>
+            <span className="text-sm">No Image</span>
+          </div>
+        )}
+        
         <img
-          src={product.images?.[0]?.image_url || product.image_url || "/images/placeholder.png"}
-          alt={product.name}
-          className="w-full h-48 object-cover rounded-lg"
+          src={imageSrc}
+          alt={product.name || 'Product'}
+          className={`w-full h-48 object-cover rounded-lg transition-opacity duration-300 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          loading="lazy"
         />
       </div>
 
@@ -484,7 +582,9 @@ const ProductCard = ({ product }) => {
         ))}
       </div>
 
-      <p className="text-gray-700 text-md mb-2 min-h-[40px] line-clamp-2">{product.name}</p>
+      <p className="text-gray-700 text-md mb-2 min-h-[40px] line-clamp-2">
+        {product.name || 'Unnamed Product'}
+      </p>
       <div className="mb-3">
         {product.offer_price && product.offer_price < product.price ? (
           <div className="flex items-center gap-2">
@@ -492,7 +592,9 @@ const ProductCard = ({ product }) => {
             <span className="text-gray-500 line-through text-sm">{product.price} AED</span>
           </div>
         ) : (
-          <span className="text-gray-800 font-bold text-lg">{product.price} AED</span>
+          <span className="text-gray-800 font-bold text-lg">
+            {product.price ? `${product.price} AED` : 'Price not available'}
+          </span>
         )}
       </div>
       
@@ -620,6 +722,7 @@ const StorePage = () => {
       const allProducts = [...(paginated.data || [])];
 
       console.log(`📦 Initial fetch: ${allProducts.length} products from page ${page}`);
+      console.log('Sample product structure:', allProducts[0]); // Debug log
 
       setProducts(allProducts);
       setFilteredProducts(allProducts);
@@ -700,25 +803,52 @@ const StorePage = () => {
     }
   };
 
-  // Handle filter application
-  const onApplyFilters = (filters) => {
-    console.log("Applying filters:", filters);
+ // Add this helper function at the top of your StorePage component
+const getProductTypeValues = (selectedLabels) => {
+  // Define the same productTypes structure as in FilterSidebar
+  const productTypes = [
+    { label: "Food", value: ["Food"] },
+    { label: "Accessories", value: ["cage", "cat litter box", "scratcher"] }, // multiple internal values
+    { label: "Collar", value: ["collar"] },
+    { label: "Toys", value: ["Toy"] },
+  ];
 
-    // Update state
-    setSelectedRange(filters.priceRange);
-    setSelectedProductType(filters.productTypes);
-    setSelectedPetTypes(filters.petTypes);
-    setCurrentPage(1);
+  // Convert selected labels to actual values
+  const allValues = [];
+  selectedLabels.forEach(label => {
+    const category = productTypes.find(type => type.label === label);
+    if (category) {
+      allValues.push(...category.value);
+    }
+  });
+  
+  return allValues;
+};
 
-    // Fetch filtered products starting from page 1
-    fetchFilteredProducts(
-      searchQuery,
-      filters.productTypes,
-      filters.petTypes,
-      filters.priceRange,
-      1
-    );
-  };
+// Update your onApplyFilters function
+const onApplyFilters = (filters) => {
+  console.log("Applying filters:", filters);
+
+  // Convert category labels to actual product type values
+  const productTypeValues = getProductTypeValues(filters.productTypes);
+  
+  console.log("Converted product types:", productTypeValues); // Debug log
+
+  // Update state
+  setSelectedRange(filters.priceRange);
+  setSelectedProductType(filters.productTypes); // Keep the labels for UI state
+  setSelectedPetTypes(filters.petTypes);
+  setCurrentPage(1);
+
+  // Fetch filtered products starting from page 1 with actual values
+  fetchFilteredProducts(
+    searchQuery,
+    productTypeValues, // Send the actual values, not labels
+    filters.petTypes,
+    filters.priceRange,
+    1
+  );
+};
 
   // Handle search
   const handleSearch = (e) => {
